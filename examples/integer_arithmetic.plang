@@ -1,0 +1,30 @@
+# ======================================================================
+# PLang Example 1: Integer Arithmetic & Operator Precedence
+# Demonstrates Requirement II.1 (Integer Computation & Precedence)
+# ======================================================================
+
+# 1. Explicit integer variable declarations (Readability)
+let base_score = 100
+let bonus = 25
+let penalty = 15
+
+# 2. Integer addition and subtraction
+let net_score = base_score + bonus - penalty
+print net_score
+
+# 3. Operator precedence: ^ before * // % before + -
+let precedence_check = 10 + 3 * 2 ^ 3
+print precedence_check
+
+# 4. Parentheses overriding default precedence
+let grouped_check = (10 + 3) * 2 ^ 3
+print grouped_check
+
+# 5. Exact integer floor division (//) and modulo (%)
+let total_items = 47
+let box_size = 10
+let full_boxes = total_items // box_size
+let remaining_items = total_items % box_size
+
+print full_boxes
+print remaining_items

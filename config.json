@@ -1,0 +1,43 @@
+{
+  "name": "PLang",
+  "version": "2.0.0",
+  "description": "A Readable, Writable, and Reliable Arithmetic Programming Language.",
+  "banner": "======================================================================\n  PLang v2.0 — Arithmetic Programming Language Interpreter\n  Designed for Readability, Writability, and Reliability (CMPSC 132)\n======================================================================",
+  "comment_prefix": "#",
+  "print_prefix": "[OUT] => ",
+  "keywords": {
+    "let": "let",
+    "assign": "=",
+    "add_assign": "+=",
+    "sub_assign": "-=",
+    "mul_assign": "*=",
+    "div_assign": "/=",
+    "add": "+",
+    "add_kw": "add",
+    "sub": "-",
+    "sub_kw": "sub",
+    "mul": "*",
+    "mul_kw": "mul",
+    "div": "/",
+    "idiv": "//",
+    "idiv_kw": "div",
+    "mod": "%",
+    "mod_kw": "mod",
+    "pow": "^",
+    "pow_alt": "**",
+    "pow_kw": "pow",
+    "print": "print",
+    "clear": "clear",
+    "vars": "vars"
+  },
+  "errors": {
+    "lexer_error": "[Lexical Error] Line {line}, Col {col}: {message}",
+    "parse_error": "[Syntax Error] Line {line}, Col {col}: {message}",
+    "divide_by_zero": "[Runtime Error] Line {line}, Col {col}: Division or modulo by zero is undefined.",
+    "undefined_variable": "[Runtime Error] Line {line}, Col {col}: Variable '{name}' is not defined before use.",
+    "negative_sqrt": "[Runtime Error] Line {line}, Col {col}: Cannot compute real square root of negative number ({value}).",
+    "overflow_error": "[Runtime Error] Line {line}, Col {col}: Numeric overflow — expression result exceeds safe computation limits.",
+    "argument_error": "[Runtime Error] Line {line}, Col {col}: {message}",
+    "type_error": "[Runtime Error] Line {line}, Col {col}: Invalid operand types for arithmetic operation."
+  }
+}

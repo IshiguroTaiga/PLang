@@ -1,0 +1,28 @@
+# ======================================================================
+# PLang Example 3: Writability & Built-in Mathematical Functions
+# Demonstrates Compound Assignments, Built-in Functions, and Symbol Table
+# ======================================================================
+
+# Concise variable initialization and compound updates
+counter = 10
+counter += 5
+counter *= 4
+counter -= 10
+print counter
+
+# Built-in mathematical functions (abs, sqrt, min, max, round)
+let distance = abs(-42)
+let hypotenuse = sqrt(3 ^ 2 + 4 ^ 2)
+let lowest = min(15, 8, 23, 4, 16)
+let highest = max(15, 8, 23, 4, 16)
+
+print distance
+print hypotenuse
+print lowest
+print highest
+
+# Inspect active symbol table
+vars
+
+# Clear state
+clear

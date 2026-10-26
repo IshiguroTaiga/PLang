@@ -1,0 +1,20 @@
+# ======================================================================
+# PLang Example 2: Hybrid Syntax (English Keywords + Math Symbols)
+# Demonstrates Sebesta's Readability & Writability Balance
+# ======================================================================
+
+# Using natural English operator keywords for high readability
+let units = 20 add 5
+let unit_price = 12 mul 3
+let subtotal = units mul unit_price
+print subtotal
+
+# Integer division ('div') and remainder ('mod') keywords
+let packets = subtotal div 100
+let leftover = subtotal mod 100
+print packets
+print leftover
+
+# Exponentiation ('pow') and subtraction ('sub')
+let capacity = 2 pow 8 sub 56
+print capacity
