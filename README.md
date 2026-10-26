@@ -1,12 +1,12 @@
-# ∑ PLang v2.0: A Readable, Writable, and Reliable Arithmetic Programming Language
+# PLang v2.0: A Readable, Writable, and Reliable Arithmetic Programming Language
 
 [![Language: Python 3](https://img.shields.io/badge/Core_Engine-Python_3-3776AB?logo=python&logoColor=white)](#)
 [![Web IDE: React + Vite](https://img.shields.io/badge/Web_Studio-React_19_%2B_Vite-61DAFB?logo=react&logoColor=black)](#)
 [![Course: CMPSC 132](https://img.shields.io/badge/Course-CMPSC_132_Programming_Languages-10B981)](#)
 
-**PLang v2.0** is a custom-designed arithmetic programming language and dual-interface interpreter system (**Python CLI/REPL** + **Interactive React Web IDE**) developed for **CMPSC 132: Programming Languages**.
+**PLang v2.0** is a custom-designed arithmetic programming language and dual-interface interpreter system (**Python CLI/REPL** + **Interactive React Web IDE**).
 
-It is engineered from the ground up around Robert W. Sebesta's three foundational Programming Language Evaluation Criteria: **Readability**, **Writability**, and **Reliability**.
+It is engineered from the ground up TO MEET the three foundational Programming Language Evaluation Criteria: **Readability**, **Writability**, and **Reliability**.
 
 ---
 
@@ -26,9 +26,9 @@ It is engineered from the ground up around Robert W. Sebesta's three foundationa
 
 ## 🎯 1. What Is This Project About?
 
-The goal of **PLang v2.0** is to design and implement a complete, human-centric programming language capable of evaluating arithmetic expressions (with a strict guarantee on exact integer arithmetic as well as floating-point precision), managing stateful variables, and providing clear, reliable error diagnostics when given malformed or invalid input.
+The goal of **PLang v2.0** is to design and implement a complete, human-centric programming language capable of evaluating arithmetic expressions (with a strict guarantee on exact integer arithmetic as well as floating-point precision), managing stateful variables, and providing clear, reliable error diagnostics when given malformed or invalid input. Basically just to fulfill the projects requirement :>
 
-Instead of scattering syntax across conflicting roleplay themes—which introduces *feature multiplicity* and harms readability—**PLang v2.0** implements a **unified hybrid syntax**:
+Instead of scattering syntax across conflicting character based themes—which introduces *feature multiplicity* and harms readability—**PLang v2.0** implements a **unified hybrid syntax**:
 * Developers can write standard symbolic math (`let x = 10 + 5 * 2`) **or** self-documenting English operator keywords (`let x = 10 add 5 mul 2`).
 * Every stage of execution—from **Lexical Tokenization** to **Abstract Syntax Tree (AST) Construction** and **Symbol Table Evaluation**—can be inspected live in both the **Command-Line Interface (CLI)** and the **Browser Web IDE**.
 
@@ -151,7 +151,7 @@ Primary     ::= NUMBER
 
 ---
 
-## 🚀 7. Installation & How to Use
+## 7. Installation & How to Use
 
 ### Prerequisites
 * **Python 3.10+** (for the CLI, REPL, and test suite)
