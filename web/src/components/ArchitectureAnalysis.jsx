@@ -152,8 +152,36 @@ export default function ArchitectureAnalysis() {
 
           <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
             <span className="text-[10px] uppercase text-amber-400 font-bold">Stage 4</span>
-            <div className="font-bold text-slate-200 text-sm">AST Evaluator</div>
-            <p className="text-[11px] text-slate-500 font-sans">Tree-walk interpreter with symbol table & runtime guards</p>
+            <div className="font-bold text-slate-200 text-sm">Polymorphic Evaluator</div>
+            <p className="text-[11px] text-slate-500 font-sans">Polymorphic AST + Dictionary Dispatch Tables (Zero if-else / nested ifs)</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Zero If-Else & Zero Nested-If Architectural Highlight */}
+      <div className="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl space-y-4">
+        <h3 className="text-base font-bold text-slate-100 flex items-center space-x-2 border-b border-slate-800 pb-3">
+          <Code className="w-5 h-5 text-cyan-400" />
+          <span>Implementation Architecture: Zero if-else & Zero Nested if Design</span>
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div className="font-bold text-cyan-400">1. Polymorphic AST Dispatch</div>
+            <p className="text-slate-400 leading-relaxed">
+              Every <code className="text-cyan-300">ASTNode</code> subclass implements its own <code className="text-purple-300">.evaluate()</code>, <code className="text-purple-300">.execute()</code>, and <code className="text-purple-300">.format_tree()</code> methods, eliminating <code className="text-rose-300">if-elif-else</code> type checks.
+            </p>
+          </div>
+          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div className="font-bold text-purple-400">2. Dictionary Dispatch + operator Library</div>
+            <p className="text-slate-400 leading-relaxed">
+              Token handlers, statement parsers, built-in functions, and binary operators (<code className="text-purple-300">operator.add</code>, <code className="text-purple-300">operator.mul</code>, etc.) dispatch in O(1) via lookup tables.
+            </p>
+          </div>
+          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div className="font-bold text-emerald-400">3. Flat Guard Clauses</div>
+            <p className="text-slate-400 leading-relaxed">
+              All validation checks use single-level guard clauses that immediately <code className="text-emerald-300">return</code> or <code className="text-emerald-300">raise</code>, verified by automated AST inspection tests.
+            </p>
           </div>
         </div>
       </div>

@@ -4,12 +4,21 @@
  * Course: CMPSC 132 — Programming Languages (1st Semester, A.Y. 2025-2026)
  *
  * Implements the lexical analyzer (tokenizer), recursive-descent parser,
- * Abstract Syntax Tree (AST) node classes, tree-walking interpreter, and
- * diagnostic error formatter for the PLang Web IDE.
+ * polymorphic Abstract Syntax Tree (AST) node classes, table-driven interpreter,
+ * and diagnostic error formatter for the PLang Web IDE.
+ *
+ * Architectural Highlight (Zero `if-else` & Zero Nested `if` Design):
+ *   1. Polymorphic AST & Exception Dispatch: Each `ASTNode` subclass implements
+ *      `.evaluate()` and `.execute()`, and each `PlangError` subclass implements
+ *      `.formatHeader()`.
+ *   2. Dictionary Dispatch Tables: Token handlers, statement parsers, primary
+ *      parsers, arithmetic operators, and built-in functions use O(1) object maps.
+ *   3. Flat Guard Clauses: Validation checks immediately `return` or `throw`
+ *      with zero `else` branches and zero nested `if` blocks.
  */
 
 // ============================================================================
-// 1. EXCEPTION HIERARCHY
+// 1. POLYMORPHIC EXCEPTION HIERARCHY
 // ============================================================================
 
 /**
@@ -37,6 +46,10 @@ export class PlangError extends Error {
     this.column = column;
     this.sourceLine = sourceLine;
     this.hint = hint || this.constructor.DEFAULT_HINT;
+  }
+
+  formatHeader(line, col) {
+    return `[${this.constructor.CATEGORY}] Line ${line}, Col ${col}: ${this.message}`;
   }
 }
 
@@ -88,6 +101,7 @@ export class ParseError extends PlangError {
  * Class Variables (Static Properties):
  *   @property {string} CATEGORY - Error category label ('Runtime Error').
  *   @property {string} DEFAULT_HINT - Default hint for runtime arithmetic errors.
+ *   @property {Object<string, function>} HEADER_FORMATTERS - Dispatch table formatting runtime error headers.
  *
  * Instance Properties:
  *   @property {string|null} varName - Undefined variable identifier if applicable.
@@ -96,6 +110,20 @@ export class ParseError extends PlangError {
 export class InterpreterError extends PlangError {
   static CATEGORY = "Runtime Error";
   static DEFAULT_HINT = "Verify that all variables are defined before use and divisors are non-zero.";
+  static HEADER_FORMATTERS = {
+    divide_by_zero: (err, line, col) =>
+      `[Runtime Error] Line ${line}, Col ${col}: Division or modulo by zero is undefined.`,
+    undefined_variable: (err, line, col) =>
+      `[Runtime Error] Line ${line}, Col ${col}: Variable '${err.varName || "unknown"}' is not defined before use.`,
+    negative_sqrt: (err, line, col) =>
+      `[Runtime Error] Line ${line}, Col ${col}: Cannot compute real square root of negative number (${err.detail}).`,
+    overflow_error: (err, line, col) =>
+      `[Runtime Error] Line ${line}, Col ${col}: Numeric overflow — expression result exceeds safe computation limits.`,
+    argument_error: (err, line, col) =>
+      `[Runtime Error] Line ${line}, Col ${col}: ${err.detail || err.message}`,
+    type_error: (err, line, col) =>
+      `[Runtime Error] Line ${line}, Col ${col}: Invalid operand types for arithmetic operation.`
+  };
 
   constructor(
     message,
@@ -110,6 +138,13 @@ export class InterpreterError extends PlangError {
     this.name = "InterpreterError";
     this.varName = varName;
     this.detail = detail;
+  }
+
+  formatHeader(line, col) {
+    const formatter =
+      InterpreterError.HEADER_FORMATTERS[this.message] ||
+      InterpreterError.HEADER_FORMATTERS.type_error;
+    return formatter(this, line, col);
   }
 }
 
@@ -145,13 +180,16 @@ export class Token {
 }
 
 // ============================================================================
-// 3. ABSTRACT SYNTAX TREE (AST) NODES
+// 3. POLYMORPHIC ABSTRACT SYNTAX TREE (AST) NODES
 // ============================================================================
 
 /**
  * Base class for all PLang Abstract Syntax Tree (AST) nodes.
  *
- *Instance Properties:
+ * Class Variables (Static Properties):
+ *   @property {string} NODE_CATEGORY - High-level classification of the AST node.
+ *
+ * Instance Properties:
  *   @property {number} line - 1-based source line number.
  *   @property {number} col - 1-based source column number.
  */
@@ -161,6 +199,16 @@ export class ASTNode {
   constructor(line, col) {
     this.line = line;
     this.col = col;
+  }
+
+  evaluate(interpreter) {
+    throw new InterpreterError("Unknown AST node", this.line, this.col);
+  }
+
+  execute(interpreter) {
+    const val = this.evaluate(interpreter);
+    interpreter.variables.ans = val;
+    return val;
   }
 }
 
@@ -172,6 +220,10 @@ export class NumberNode extends ASTNode {
     this.type = "NumberNode";
     this.value = value;
   }
+
+  evaluate() {
+    return this.value;
+  }
 }
 
 export class VarNode extends ASTNode {
@@ -181,6 +233,10 @@ export class VarNode extends ASTNode {
     super(line, col);
     this.type = "VarNode";
     this.name = name;
+  }
+
+  evaluate(interpreter) {
+    return interpreter.resolveVariable(this.name, this.line, this.col);
   }
 }
 
@@ -192,6 +248,10 @@ export class UnaryOpNode extends ASTNode {
     this.type = "UnaryOpNode";
     this.op = op;
     this.expr = expr;
+  }
+
+  evaluate(interpreter) {
+    return interpreter.applyUnaryOp(this.op, this.expr.evaluate(interpreter), this.line, this.col);
   }
 }
 
@@ -205,6 +265,12 @@ export class BinOpNode extends ASTNode {
     this.left = left;
     this.right = right;
   }
+
+  evaluate(interpreter) {
+    const leftVal = this.left.evaluate(interpreter);
+    const rightVal = this.right.evaluate(interpreter);
+    return interpreter.applyBinaryOp(this.op, leftVal, rightVal, this.line, this.col);
+  }
 }
 
 export class FuncCallNode extends ASTNode {
@@ -216,6 +282,10 @@ export class FuncCallNode extends ASTNode {
     this.type = "FuncCallNode";
     this.funcName = funcName;
     this.args = args;
+  }
+
+  evaluate(interpreter) {
+    return interpreter.evaluateFunction(this);
   }
 }
 
@@ -229,6 +299,10 @@ export class AssignNode extends ASTNode {
     this.expr = expr;
     this.op = op;
   }
+
+  execute(interpreter) {
+    return interpreter.executeAssignment(this);
+  }
 }
 
 export class PrintNode extends ASTNode {
@@ -239,6 +313,14 @@ export class PrintNode extends ASTNode {
     this.type = "PrintNode";
     this.expr = expr;
   }
+
+  execute(interpreter) {
+    const val = this.expr.evaluate(interpreter);
+    interpreter.variables.ans = val;
+    const prefix = interpreter.config?.print_prefix || "[OUT] => ";
+    interpreter.outputs.push({ type: "print", text: `${prefix}${val}`, value: val });
+    return null;
+  }
 }
 
 export class ClearNode extends ASTNode {
@@ -247,6 +329,12 @@ export class ClearNode extends ASTNode {
   constructor(line, col) {
     super(line, col);
     this.type = "ClearNode";
+  }
+
+  execute(interpreter) {
+    interpreter.variables = {};
+    interpreter.outputs.push({ type: "clear", text: "[Symbol Table Cleared — Environment Reset]" });
+    return null;
   }
 }
 
@@ -257,10 +345,15 @@ export class VarsNode extends ASTNode {
     super(line, col);
     this.type = "VarsNode";
   }
+
+  execute(interpreter) {
+    interpreter.recordVarsSnapshot();
+    return null;
+  }
 }
 
 // ============================================================================
-// 4. LEXICAL ANALYZER (TOKENIZER)
+// 4. TABLE-DRIVEN LEXICAL ANALYZER (TOKENIZER)
 // ============================================================================
 
 const RESERVED_KEYWORDS = new Set([
@@ -268,16 +361,61 @@ const RESERVED_KEYWORDS = new Set([
   "add", "sub", "mul", "div", "mod", "pow"
 ]);
 
+const CANONICAL_TYPE_MAP = {
+  ADD_KW: "ADD",
+  SUB_KW: "SUB",
+  MUL_KW: "MUL",
+  IDIV_KW: "IDIV",
+  MOD_KW: "MOD",
+  POW_KW: "POW",
+  POW_ALT: "POW"
+};
+
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const TOKEN_HANDLERS = {
+  MALFORMED_FLOAT: (val, line, col, lineText) => {
+    throw new LexerError(
+      val,
+      line,
+      col,
+      `Malformed numeric literal '${val}' (multiple decimal points).`,
+      lineText,
+      "A floating-point number may contain at most one decimal point (e.g., 3.14)."
+    );
+  },
+  MALFORMED_IDENT: (val, line, col, lineText) => {
+    throw new LexerError(
+      val,
+      line,
+      col,
+      `Invalid token '${val}' — identifiers cannot begin with a digit.`,
+      lineText,
+      `Rename the variable to start with a letter (e.g., 'var_${val}') or insert '*' for multiplication.`
+    );
+  },
+  NEWLINE: (val, line, col, _lineText, matchEnd, tokens) => {
+    tokens.push(new Token("NEWLINE", val, line, col));
+    return { line: line + 1, lineStart: matchEnd };
+  },
+  SKIP: (_val, line, _col, _lineText, _matchEnd, _tokens, lineStart) => ({ line, lineStart }),
+  COMMENT: (_val, line, _col, _lineText, _matchEnd, _tokens, lineStart) => ({ line, lineStart })
+};
+
+function createStandardTokenHandler(rawType) {
+  const normType = CANONICAL_TYPE_MAP[rawType] || rawType;
+  return (val, line, col, _lineText, _matchEnd, tokens, lineStart) => {
+    tokens.push(new Token(normType, val, line, col));
+    return { line, lineStart };
+  };
 }
 
 export function tokenize(sourceCode, config = {}) {
   const commentPrefix = config?.comment_prefix || "#";
   const sourceLines = sourceCode ? sourceCode.split(/\r?\n/) : [""];
-
-  const getSourceLine = (lineNum) =>
-    lineNum >= 1 && lineNum <= sourceLines.length ? sourceLines[lineNum - 1] : "";
+  const getSourceLine = (lineNum) => sourceLines[lineNum - 1] || "";
 
   const regexParts = [
     `(?<COMMENT>${escapeRegex(commentPrefix)}[^\\n]*)`,
@@ -316,16 +454,6 @@ export function tokenize(sourceCode, config = {}) {
   ];
 
   const masterRegex = new RegExp(regexParts.join("|"), "g");
-  const canonicalTypeMap = {
-    ADD_KW: "ADD",
-    SUB_KW: "SUB",
-    MUL_KW: "MUL",
-    IDIV_KW: "IDIV",
-    MOD_KW: "MOD",
-    POW_KW: "POW",
-    POW_ALT: "POW"
-  };
-
   const tokens = [];
   let line = 1;
   let lineStart = 0;
@@ -349,50 +477,22 @@ export function tokenize(sourceCode, config = {}) {
       );
     }
 
-    const groups = match.groups || {};
-    let rawType = null;
-    let tokenValue = null;
-
-    for (const [key, val] of Object.entries(groups)) {
-      if (val !== undefined) {
-        rawType = key;
-        tokenValue = val;
-        break;
-      }
-    }
-
-    if (rawType === "MALFORMED_FLOAT") {
-      throw new LexerError(
-        tokenValue,
-        line,
-        col,
-        `Malformed numeric literal '${tokenValue}' (multiple decimal points).`,
-        currentLineText,
-        "A floating-point number may contain at most one decimal point (e.g., 3.14)."
-      );
-    }
-
-    if (rawType === "MALFORMED_IDENT") {
-      throw new LexerError(
-        tokenValue,
-        line,
-        col,
-        `Invalid token '${tokenValue}' — identifiers cannot begin with a digit.`,
-        currentLineText,
-        `Rename the variable to start with a letter (e.g., 'var_${tokenValue}') or insert '*' for multiplication.`
-      );
-    }
-
-    if (rawType === "NEWLINE") {
-      tokens.push(new Token("NEWLINE", tokenValue, line, col));
-      line += 1;
-      lineStart = match.index + tokenValue.length;
-    } else if (rawType !== "SKIP" && rawType !== "COMMENT") {
-      const normType = canonicalTypeMap[rawType] || rawType;
-      tokens.push(new Token(normType, tokenValue, line, col));
-    }
-
-    pos = match.index + match[0].length;
+    const matchedEntry = Object.entries(match.groups || {}).find(([, v]) => v !== undefined);
+    const [rawType, tokenValue] = matchedEntry;
+    const matchEnd = match.index + match[0].length;
+    const handler = TOKEN_HANDLERS[rawType] || createStandardTokenHandler(rawType);
+    const nextState = handler(
+      tokenValue,
+      line,
+      col,
+      currentLineText,
+      matchEnd,
+      tokens,
+      lineStart
+    );
+    line = nextState.line;
+    lineStart = nextState.lineStart;
+    pos = matchEnd;
   }
 
   tokens.push(new Token("EOF", "", line, pos - lineStart + 1));
@@ -400,7 +500,7 @@ export function tokenize(sourceCode, config = {}) {
 }
 
 // ============================================================================
-// 5. RECURSIVE-DESCENT PARSER
+// 5. TABLE-DRIVEN RECURSIVE-DESCENT PARSER
 // ============================================================================
 
 export class Parser {
@@ -411,19 +511,31 @@ export class Parser {
     MUL_ASSIGN: "*=",
     DIV_ASSIGN: "/="
   };
+  static UNARY_OP_MAP = {
+    SUB: "sub",
+    ADD: "add"
+  };
 
   constructor(tokens, config = {}, sourceCode = "") {
     this.tokens = tokens;
     this.pos = 0;
     this.config = config;
     this.sourceLines = sourceCode ? sourceCode.split(/\r?\n/) : [];
+    this.statementDispatch = {
+      LET: () => this.parseLetStatement(),
+      PRINT: () => this.parsePrintStatement(),
+      CLEAR: () => this.parseClearStatement(),
+      VARS: () => this.parseVarsStatement()
+    };
+    this.primaryDispatch = {
+      NUMBER: () => this.parseNumberPrimary(),
+      IDENT: () => this.parseIdentPrimary(),
+      LPAREN: () => this.parseGroupedPrimary()
+    };
   }
 
   getLineText(lineNum) {
-    if (lineNum >= 1 && lineNum <= this.sourceLines.length) {
-      return this.sourceLines[lineNum - 1];
-    }
-    return null;
+    return this.sourceLines[lineNum - 1] || null;
   }
 
   currentToken() {
@@ -431,11 +543,12 @@ export class Parser {
   }
 
   peekToken(offset = 1) {
-    const idx = this.pos + offset;
-    if (idx < this.tokens.length) {
-      return this.tokens[idx];
-    }
-    return this.tokens[this.tokens.length - 1];
+    return this.tokens[this.pos + offset] || this.tokens[this.tokens.length - 1];
+  }
+
+  displayTokenValue(token, eofLabel = "end of input") {
+    if (token.type === "EOF") return eofLabel;
+    return token.value;
   }
 
   consume(expectedType, customMessage = null, hint = null) {
@@ -444,9 +557,9 @@ export class Parser {
       this.pos += 1;
       return token;
     }
-    const shown = token.type !== "EOF" ? token.value : "end of input";
+    const shown = this.displayTokenValue(token, "end of input");
     throw new ParseError(
-      customMessage || `Expected '${expectedType}', but found '${shown}'.`,
+      customMessage || `Expected '${expectedType}', but found '{shown}'.`.replace("{shown}", shown),
       token.line,
       token.column,
       this.getLineText(token.line),
@@ -454,26 +567,27 @@ export class Parser {
     );
   }
 
-  parseProgram() {
-    const statements = [];
+  skipNewlines() {
     while (this.currentToken().type === "NEWLINE") {
       this.consume("NEWLINE");
     }
+  }
+
+  verifyStatementBoundary() {
+    const curr = this.currentToken();
+    if (!["NEWLINE", "EOF"].includes(curr.type)) {
+      this.raiseTrailingTokenError(curr);
+    }
+    this.skipNewlines();
+  }
+
+  parseProgram() {
+    const statements = [];
+    this.skipNewlines();
 
     while (this.currentToken().type !== "EOF") {
-      const stmt = this.parseStatement();
-      statements.push(stmt);
-
-      const curr = this.currentToken();
-      if (curr.type === "NEWLINE") {
-        this.consume("NEWLINE");
-      } else if (curr.type !== "EOF") {
-        this.raiseTrailingTokenError(curr);
-      }
-
-      while (this.currentToken().type === "NEWLINE") {
-        this.consume("NEWLINE");
-      }
+      statements.push(this.parseStatement());
+      this.verifyStatementBoundary();
     }
 
     return statements;
@@ -515,81 +629,85 @@ export class Parser {
     );
   }
 
+  validateLetTarget(identTok) {
+    if (identTok.type === "IDENT") return;
+    if (RESERVED_KEYWORDS.has(identTok.value)) {
+      throw new ParseError(
+        `Cannot use reserved keyword '${identTok.value}' as a variable name.`,
+        identTok.line,
+        identTok.column,
+        this.getLineText(identTok.line),
+        "Choose a descriptive variable name that is not a reserved language keyword."
+      );
+    }
+    const shown = this.displayTokenValue(identTok, "end of line");
+    throw new ParseError(
+      `Expected a variable name after 'let', but got '${shown}'.`,
+      identTok.line,
+      identTok.column,
+      this.getLineText(identTok.line),
+      "Syntax for variable declaration is: let <variable_name> = <expression>"
+    );
+  }
+
+  parseLetStatement() {
+    const letTok = this.consume("LET");
+    const identTok = this.currentToken();
+    this.validateLetTarget(identTok);
+    this.consume("IDENT");
+
+    const bad = this.currentToken();
+    const shown = this.displayTokenValue(bad, "end of line");
+    this.consume(
+      "ASSIGN",
+      `Expected '=' after variable '${identTok.value}' in 'let' declaration, got '${shown}'.`,
+      `Write: let ${identTok.value} = <expression>`
+    );
+    const expr = this.parseExpr();
+    return new AssignNode(identTok.value, expr, letTok.line, letTok.column, "=");
+  }
+
+  parsePrintStatement() {
+    const token = this.consume("PRINT");
+    if (["NEWLINE", "EOF"].includes(this.currentToken().type)) {
+      throw new ParseError(
+        "Missing expression after 'print' statement.",
+        token.line,
+        token.column,
+        this.getLineText(token.line),
+        "Provide a value or expression to print, e.g., 'print 10 + 5' or 'print x'."
+      );
+    }
+    return new PrintNode(this.parseExpr(), token.line, token.column);
+  }
+
+  parseClearStatement() {
+    const token = this.consume("CLEAR");
+    return new ClearNode(token.line, token.column);
+  }
+
+  parseVarsStatement() {
+    const token = this.consume("VARS");
+    return new VarsNode(token.line, token.column);
+  }
+
+  parseAssignmentStatement() {
+    const identTok = this.consume("IDENT");
+    const opTok = this.consume(this.currentToken().type);
+    const opSymbol = Parser.COMPOUND_OP_MAP[opTok.type];
+    const expr = this.parseExpr();
+    return new AssignNode(identTok.value, expr, identTok.line, identTok.column, opSymbol);
+  }
+
   parseStatement() {
     const token = this.currentToken();
 
-    if (token.type === "LET") {
-      const letTok = this.consume("LET");
-      const identTok = this.currentToken();
-      if (identTok.type !== "IDENT") {
-        const shown = identTok.type !== "EOF" ? identTok.value : "end of line";
-        if (RESERVED_KEYWORDS.has(identTok.value)) {
-          throw new ParseError(
-            `Cannot use reserved keyword '${identTok.value}' as a variable name.`,
-            identTok.line,
-            identTok.column,
-            this.getLineText(identTok.line),
-            "Choose a descriptive variable name that is not a reserved language keyword."
-          );
-        }
-        throw new ParseError(
-          `Expected a variable name after 'let', but got '${shown}'.`,
-          identTok.line,
-          identTok.column,
-          this.getLineText(identTok.line),
-          "Syntax for variable declaration is: let <variable_name> = <expression>"
-        );
-      }
-      this.consume("IDENT");
-      if (this.currentToken().type !== "ASSIGN") {
-        const bad = this.currentToken();
-        const shown = bad.type !== "EOF" ? bad.value : "end of line";
-        throw new ParseError(
-          `Expected '=' after variable '${identTok.value}' in 'let' declaration, got '${shown}'.`,
-          bad.line,
-          bad.column,
-          this.getLineText(bad.line),
-          `Write: let ${identTok.value} = <expression>`
-        );
-      }
-      this.consume("ASSIGN");
-      const expr = this.parseExpr();
-      return new AssignNode(identTok.value, expr, letTok.line, letTok.column, "=");
-    }
-
-    if (token.type === "PRINT") {
-      this.consume("PRINT");
-      if (["NEWLINE", "EOF"].includes(this.currentToken().type)) {
-        throw new ParseError(
-          "Missing expression after 'print' statement.",
-          token.line,
-          token.column,
-          this.getLineText(token.line),
-          "Provide a value or expression to print, e.g., 'print 10 + 5' or 'print x'."
-        );
-      }
-      const expr = this.parseExpr();
-      return new PrintNode(expr, token.line, token.column);
-    }
-
-    if (token.type === "CLEAR") {
-      this.consume("CLEAR");
-      return new ClearNode(token.line, token.column);
-    }
-
-    if (token.type === "VARS") {
-      this.consume("VARS");
-      return new VarsNode(token.line, token.column);
+    if (this.statementDispatch[token.type]) {
+      return this.statementDispatch[token.type]();
     }
 
     if (token.type === "IDENT" && Parser.COMPOUND_OP_MAP[this.peekToken().type]) {
-      const name = token.value;
-      this.consume("IDENT");
-      const opTok = this.currentToken();
-      this.consume(opTok.type);
-      const opSymbol = Parser.COMPOUND_OP_MAP[opTok.type];
-      const expr = this.parseExpr();
-      return new AssignNode(name, expr, token.line, token.column, opSymbol);
+      return this.parseAssignmentStatement();
     }
 
     if (Token.STATEMENT_KW_TYPES.includes(token.type) && Parser.COMPOUND_OP_MAP[this.peekToken().type]) {
@@ -619,8 +737,7 @@ export class Parser {
   parseExpr() {
     let node = this.parseTerm();
     while (["ADD", "SUB"].includes(this.currentToken().type)) {
-      const opToken = this.currentToken();
-      this.consume(opToken.type);
+      const opToken = this.consume(this.currentToken().type);
       const right = this.parseTerm();
       node = new BinOpNode(opToken.type.toLowerCase(), node, right, opToken.line, opToken.column);
     }
@@ -630,8 +747,7 @@ export class Parser {
   parseTerm() {
     let node = this.parseExponent();
     while (["MUL", "DIV", "IDIV", "MOD"].includes(this.currentToken().type)) {
-      const opToken = this.currentToken();
-      this.consume(opToken.type);
+      const opToken = this.consume(this.currentToken().type);
       const right = this.parseExponent();
       node = new BinOpNode(opToken.type.toLowerCase(), node, right, opToken.line, opToken.column);
     }
@@ -639,88 +755,89 @@ export class Parser {
   }
 
   parseExponent() {
-    let node = this.parseUnary();
+    const node = this.parseUnary();
     if (this.currentToken().type === "POW") {
-      const opToken = this.currentToken();
-      this.consume("POW");
+      const opToken = this.consume("POW");
       const right = this.parseExponent();
-      node = new BinOpNode("pow", node, right, opToken.line, opToken.column);
+      return new BinOpNode("pow", node, right, opToken.line, opToken.column);
     }
     return node;
   }
 
   parseUnary() {
     const token = this.currentToken();
-    if (token.type === "SUB") {
-      const opToken = this.consume("SUB");
-      const operand = this.parseUnary();
-      return new UnaryOpNode("sub", operand, opToken.line, opToken.column);
-    }
-    if (token.type === "ADD") {
-      const opToken = this.consume("ADD");
-      const operand = this.parseUnary();
-      return new UnaryOpNode("add", operand, opToken.line, opToken.column);
+    if (Parser.UNARY_OP_MAP[token.type]) {
+      const opToken = this.consume(token.type);
+      return new UnaryOpNode(
+        Parser.UNARY_OP_MAP[token.type],
+        this.parseUnary(),
+        opToken.line,
+        opToken.column
+      );
     }
     return this.parsePrimary();
+  }
+
+  parseNumberPrimary() {
+    const token = this.consume("NUMBER");
+    const val = Number(token.value);
+    return new NumberNode(val, token.line, token.column);
+  }
+
+  parseArgumentList() {
+    if (this.currentToken().type === "RPAREN") return [];
+    const args = [this.parseExpr()];
+    while (this.currentToken().type === "COMMA") {
+      this.consume("COMMA");
+      args.push(this.parseExpr());
+    }
+    return args;
+  }
+
+  parseFunctionCall(identTok) {
+    this.consume("LPAREN");
+    const args = this.parseArgumentList();
+    this.consume(
+      "RPAREN",
+      `Unclosed '(' in call to function '${identTok.value}()' — expected ')'.`,
+      `Add a closing ')' to complete the '${identTok.value}(...)' function call.`
+    );
+    return new FuncCallNode(identTok.value, args, identTok.line, identTok.column);
+  }
+
+  parseIdentPrimary() {
+    const identTok = this.consume("IDENT");
+    if (this.currentToken().type === "LPAREN") {
+      return this.parseFunctionCall(identTok);
+    }
+    return new VarNode(identTok.value, identTok.line, identTok.column);
+  }
+
+  parseGroupedPrimary() {
+    const openTok = this.consume("LPAREN");
+    if (this.currentToken().type === "RPAREN") {
+      throw new ParseError(
+        "Empty parentheses '()' do not contain an expression.",
+        openTok.line,
+        openTok.column,
+        this.getLineText(openTok.line),
+        "Place a valid arithmetic expression inside the parentheses, e.g., '(10 + 5)'."
+      );
+    }
+    const expr = this.parseExpr();
+    this.consume(
+      "RPAREN",
+      `Unclosed parenthesis '(' opened at line ${openTok.line}, col ${openTok.column} — expected ')'.`,
+      "Add a matching closing parenthesis ')' at the end of the grouped sub-expression."
+    );
+    return expr;
   }
 
   parsePrimary() {
     const token = this.currentToken();
 
-    if (token.type === "NUMBER") {
-      this.consume("NUMBER");
-      const val = token.value.includes(".")
-        ? parseFloat(token.value)
-        : parseInt(token.value, 10);
-      return new NumberNode(val, token.line, token.column);
-    }
-
-    if (token.type === "IDENT") {
-      const identTok = this.consume("IDENT");
-      if (this.currentToken().type === "LPAREN") {
-        this.consume("LPAREN");
-        const args = [];
-        if (this.currentToken().type !== "RPAREN") {
-          args.push(this.parseExpr());
-          while (this.currentToken().type === "COMMA") {
-            this.consume("COMMA");
-            args.push(this.parseExpr());
-          }
-        }
-        this.consume(
-          "RPAREN",
-          `Unclosed '(' in call to function '${identTok.value}()' — expected ')'.`,
-          `Add a closing ')' to complete the '${identTok.value}(...)' function call.`
-        );
-        return new FuncCallNode(identTok.value, args, identTok.line, identTok.column);
-      }
-      return new VarNode(identTok.value, identTok.line, identTok.column);
-    }
-
-    if (token.type === "LPAREN") {
-      const openTok = this.consume("LPAREN");
-      if (this.currentToken().type === "RPAREN") {
-        throw new ParseError(
-          "Empty parentheses '()' do not contain an expression.",
-          openTok.line,
-          openTok.column,
-          this.getLineText(openTok.line),
-          "Place a valid arithmetic expression inside the parentheses, e.g., '(10 + 5)'."
-        );
-      }
-      const expr = this.parseExpr();
-      if (this.currentToken().type !== "RPAREN") {
-        const curr = this.currentToken();
-        throw new ParseError(
-          `Unclosed parenthesis '(' opened at line ${openTok.line}, col ${openTok.column} — expected ')'.`,
-          curr.line,
-          curr.column,
-          this.getLineText(curr.line),
-          "Add a matching closing parenthesis ')' at the end of the grouped sub-expression."
-        );
-      }
-      this.consume("RPAREN");
-      return expr;
+    if (this.primaryDispatch[token.type]) {
+      return this.primaryDispatch[token.type]();
     }
 
     if (["NEWLINE", "EOF"].includes(token.type)) {
@@ -763,7 +880,7 @@ export class Parser {
 }
 
 // ============================================================================
-// 6. TREE-WALK INTERPRETER
+// 6. TABLE-DRIVEN INTERPRETER
 // ============================================================================
 
 export class Interpreter {
@@ -772,138 +889,168 @@ export class Interpreter {
     E: Math.E
   };
   static MAX_EXPONENT_MAGNITUDE = 10000;
+  static UNARY_FUNCTIONS = {
+    add: (v) => +v,
+    sub: (v) => -v
+  };
+  static COMPOUND_BINARY_OP_MAP = {
+    "+=": "add",
+    "-=": "sub",
+    "*=": "mul",
+    "/=": "div"
+  };
 
   constructor(config = {}, initialVars = {}, sourceCode = "") {
     this.variables = { ...initialVars };
     this.config = config;
     this.outputs = [];
     this.sourceLines = sourceCode ? sourceCode.split(/\r?\n/) : [];
+    this.binaryOpDispatch = {
+      add: (a, b) => a + b,
+      sub: (a, b) => a - b,
+      mul: (a, b) => a * b,
+      div: (a, b, line, col) => this.opTrueDiv(a, b, line, col),
+      idiv: (a, b, line, col) => this.opFloorDiv(a, b, line, col),
+      mod: (a, b, line, col) => this.opModulo(a, b, line, col),
+      pow: (a, b, line, col) => this.opPower(a, b, line, col)
+    };
+    this.singleArgFuncs = {
+      abs: (x) => Math.abs(x),
+      round: (x) => Math.round(x),
+      int: (x) => Math.trunc(x),
+      float: (x) => Number(x),
+      sqrt: (x, node) => this.evalSqrt(x, node)
+    };
+    this.variadicFuncs = {
+      min: (args) => Math.min(...args),
+      max: (args) => Math.max(...args)
+    };
   }
 
   getLineText(lineNum) {
-    if (lineNum >= 1 && lineNum <= this.sourceLines.length) {
-      return this.sourceLines[lineNum - 1];
-    }
-    return null;
+    return this.sourceLines[lineNum - 1] || null;
   }
 
   evaluateStatement(stmt) {
-    if (stmt instanceof PrintNode) {
-      const val = this.evaluateExpr(stmt.expr);
-      this.variables.ans = val;
-      const prefix = this.config?.print_prefix || "[OUT] => ";
-      this.outputs.push({ type: "print", text: `${prefix}${val}`, value: val });
-      return null;
-    }
-
-    if (stmt instanceof ClearNode) {
-      this.variables = {};
-      this.outputs.push({ type: "clear", text: "[Symbol Table Cleared — Environment Reset]" });
-      return null;
-    }
-
-    if (stmt instanceof VarsNode) {
-      const entries = Object.entries(this.variables);
-      if (entries.length === 0) {
-        this.outputs.push({ type: "clear", text: "[Symbol Table] Environment is empty." });
-      } else {
-        const summary = entries
-          .map(([k, v]) => `${k} (${Number.isInteger(v) ? "int" : "float"}) = ${v}`)
-          .join("  |  ");
-        this.outputs.push({ type: "print", text: `[Symbol Table] ${summary}` });
-      }
-      return null;
-    }
-
-    if (stmt instanceof AssignNode) {
-      if (stmt.name in Interpreter.BUILT_IN_CONSTANTS) {
-        throw new InterpreterError(
-          "argument_error",
-          stmt.line,
-          stmt.col,
-          null,
-          `Cannot reassign built-in mathematical constant '${stmt.name}'.`,
-          this.getLineText(stmt.line),
-          `'${stmt.name}' is a constant. Choose a different variable name.`
-        );
-      }
-
-      const rhsVal = this.evaluateExpr(stmt.expr);
-      let finalVal = rhsVal;
-
-      if (stmt.op !== "=") {
-        if (!(stmt.name in this.variables)) {
-          throw new InterpreterError(
-            "undefined_variable",
-            stmt.line,
-            stmt.col,
-            stmt.name,
-            null,
-            this.getLineText(stmt.line),
-            `Initialize '${stmt.name}' with 'let ${stmt.name} = ...' before using '${stmt.op}'.`
-          );
-        }
-        const opMap = { "+=": "add", "-=": "sub", "*=": "mul", "/=": "div" };
-        finalVal = this.applyBinaryOp(
-          opMap[stmt.op],
-          this.variables[stmt.name],
-          rhsVal,
-          stmt.line,
-          stmt.col
-        );
-      }
-
-      this.variables[stmt.name] = finalVal;
-      this.variables.ans = finalVal;
-      return null;
-    }
-
-    const val = this.evaluateExpr(stmt);
-    this.variables.ans = val;
-    return val;
+    return stmt.execute(this);
   }
 
   evaluateExpr(node) {
-    if (node instanceof NumberNode) {
-      return node.value;
-    }
+    return node.evaluate(this);
+  }
 
-    if (node instanceof VarNode) {
-      if (node.name in this.variables) {
-        return this.variables[node.name];
-      }
-      if (node.name in Interpreter.BUILT_IN_CONSTANTS) {
-        return Interpreter.BUILT_IN_CONSTANTS[node.name];
-      }
+  recordVarsSnapshot() {
+    const entries = Object.entries(this.variables);
+    if (entries.length === 0) {
+      this.outputs.push({ type: "clear", text: "[Symbol Table] Environment is empty." });
+      return;
+    }
+    const typeLabels = { true: "int", false: "float" };
+    const summary = entries
+      .map(([k, v]) => `${k} (${typeLabels[Number.isInteger(v)]}) = ${v}`)
+      .join("  |  ");
+    this.outputs.push({ type: "print", text: `[Symbol Table] ${summary}` });
+  }
+
+  resolveVariable(name, line, col) {
+    if (name in this.variables) return this.variables[name];
+    if (name in Interpreter.BUILT_IN_CONSTANTS) return Interpreter.BUILT_IN_CONSTANTS[name];
+    throw new InterpreterError(
+      "undefined_variable",
+      line,
+      col,
+      name,
+      null,
+      this.getLineText(line),
+      `Define '${name}' first using: let ${name} = <value>`
+    );
+  }
+
+  applyUnaryOp(op, val, line, col) {
+    if (!Interpreter.UNARY_FUNCTIONS[op]) {
+      throw new InterpreterError(`Unknown unary operator: ${op}`, line, col);
+    }
+    return Interpreter.UNARY_FUNCTIONS[op](val);
+  }
+
+  computeAssignedValue(stmt, rhsVal) {
+    if (stmt.op === "=") return rhsVal;
+    if (!(stmt.name in this.variables)) {
       throw new InterpreterError(
         "undefined_variable",
-        node.line,
-        node.col,
-        node.name,
+        stmt.line,
+        stmt.col,
+        stmt.name,
         null,
-        this.getLineText(node.line),
-        `Define '${node.name}' first using: let ${node.name} = <value>`
+        this.getLineText(stmt.line),
+        `Initialize '${stmt.name}' with 'let ${stmt.name} = ...' before using '${stmt.op}'.`
+      );
+    }
+    const mappedOp = Interpreter.COMPOUND_BINARY_OP_MAP[stmt.op];
+    return this.applyBinaryOp(mappedOp, this.variables[stmt.name], rhsVal, stmt.line, stmt.col);
+  }
+
+  executeAssignment(stmt) {
+    if (stmt.name in Interpreter.BUILT_IN_CONSTANTS) {
+      throw new InterpreterError(
+        "argument_error",
+        stmt.line,
+        stmt.col,
+        null,
+        `Cannot reassign built-in mathematical constant '${stmt.name}'.`,
+        this.getLineText(stmt.line),
+        `'${stmt.name}' is a constant. Choose a different variable name.`
       );
     }
 
-    if (node instanceof UnaryOpNode) {
-      const val = this.evaluateExpr(node.expr);
-      if (node.op === "sub") return -val;
-      if (node.op === "add") return +val;
-      throw new InterpreterError(`Unknown unary operator: ${node.op}`, node.line, node.col);
-    }
+    const rhsVal = stmt.expr.evaluate(this);
+    const finalVal = this.computeAssignedValue(stmt, rhsVal);
+    this.variables[stmt.name] = finalVal;
+    this.variables.ans = finalVal;
+    return null;
+  }
 
-    if (node instanceof FuncCallNode) {
-      return this.evaluateFunction(node);
+  evalSqrt(arg, node) {
+    if (arg < 0) {
+      throw new InterpreterError(
+        "negative_sqrt",
+        node.line,
+        node.col,
+        null,
+        String(arg),
+        this.getLineText(node.line),
+        "Pass a non-negative number (>= 0) to sqrt()."
+      );
     }
+    return Math.sqrt(arg);
+  }
 
-    if (node instanceof BinOpNode) {
-      const leftVal = this.evaluateExpr(node.left);
-      const rightVal = this.evaluateExpr(node.right);
-      return this.applyBinaryOp(node.op, leftVal, rightVal, node.line, node.col);
+  evalSingleArgFunction(fname, evalArgs, node) {
+    if (evalArgs.length !== 1) {
+      throw new InterpreterError(
+        "argument_error",
+        node.line,
+        node.col,
+        null,
+        `Function '${fname}()' expects 1 argument, but got ${evalArgs.length}.`,
+        this.getLineText(node.line)
+      );
     }
+    return this.singleArgFuncs[fname](evalArgs[0], node);
+  }
 
-    throw new InterpreterError("Unknown AST node", 0, 0);
+  evalVariadicFunction(fname, evalArgs, node) {
+    if (evalArgs.length < 2) {
+      throw new InterpreterError(
+        "argument_error",
+        node.line,
+        node.col,
+        null,
+        `Function '${fname}()' requires at least 2 arguments, got ${evalArgs.length}.`,
+        this.getLineText(node.line)
+      );
+    }
+    return this.variadicFuncs[fname](evalArgs);
   }
 
   evaluateFunction(node) {
@@ -919,55 +1066,85 @@ export class Interpreter {
       );
     }
 
-    const evalArgs = node.args.map((arg) => this.evaluateExpr(arg));
-
-    if (["abs", "sqrt", "round", "int", "float"].includes(fname)) {
-      if (evalArgs.length !== 1) {
-        throw new InterpreterError(
-          "argument_error",
-          node.line,
-          node.col,
-          null,
-          `Function '${fname}()' expects 1 argument, but got ${evalArgs.length}.`,
-          this.getLineText(node.line)
-        );
-      }
-      const arg = evalArgs[0];
-      if (fname === "abs") return Math.abs(arg);
-      if (fname === "round") return Math.round(arg);
-      if (fname === "int") return Math.trunc(arg);
-      if (fname === "float") return Number(arg);
-      if (fname === "sqrt") {
-        if (arg < 0) {
-          throw new InterpreterError(
-            "negative_sqrt",
-            node.line,
-            node.col,
-            null,
-            String(arg),
-            this.getLineText(node.line),
-            "Pass a non-negative number (>= 0) to sqrt()."
-          );
-        }
-        return Math.sqrt(arg);
-      }
+    const evalArgs = node.args.map((arg) => arg.evaluate(this));
+    if (this.singleArgFuncs[fname]) {
+      return this.evalSingleArgFunction(fname, evalArgs, node);
     }
+    return this.evalVariadicFunction(fname, evalArgs, node);
+  }
 
-    if (["min", "max"].includes(fname)) {
-      if (evalArgs.length < 2) {
-        throw new InterpreterError(
-          "argument_error",
-          node.line,
-          node.col,
-          null,
-          `Function '${fname}()' requires at least 2 arguments, got ${evalArgs.length}.`,
-          this.getLineText(node.line)
-        );
-      }
-      return fname === "min" ? Math.min(...evalArgs) : Math.max(...evalArgs);
+  requireNonZero(rightVal, line, col, hint) {
+    if (rightVal === 0) {
+      throw new InterpreterError(
+        "divide_by_zero",
+        line,
+        col,
+        null,
+        null,
+        this.getLineText(line),
+        hint
+      );
     }
+  }
 
-    throw new InterpreterError("type_error", node.line, node.col);
+  opTrueDiv(leftVal, rightVal, line, col) {
+    this.requireNonZero(
+      rightVal,
+      line,
+      col,
+      "Division by zero is undefined. Ensure the divisor is non-zero."
+    );
+    return leftVal / rightVal;
+  }
+
+  opFloorDiv(leftVal, rightVal, line, col) {
+    this.requireNonZero(
+      rightVal,
+      line,
+      col,
+      "Integer division by zero is undefined. Ensure the divisor is non-zero."
+    );
+    return Math.floor(leftVal / rightVal);
+  }
+
+  opModulo(leftVal, rightVal, line, col) {
+    this.requireNonZero(
+      rightVal,
+      line,
+      col,
+      "Modulo by zero is undefined. Ensure the right-hand operand of '%' is non-zero."
+    );
+    return ((leftVal % rightVal) + rightVal) % rightVal;
+  }
+
+  opPower(leftVal, rightVal, line, col) {
+    if (leftVal === 0 && rightVal < 0) {
+      throw new InterpreterError(
+        "divide_by_zero",
+        line,
+        col,
+        null,
+        null,
+        this.getLineText(line),
+        "Zero cannot be raised to a negative power."
+      );
+    }
+    if (Math.abs(rightVal) > Interpreter.MAX_EXPONENT_MAGNITUDE && Math.abs(leftVal) > 1) {
+      throw new InterpreterError(
+        "overflow_error",
+        line,
+        col,
+        null,
+        null,
+        this.getLineText(line),
+        `Keep exponent magnitude <= ${Interpreter.MAX_EXPONENT_MAGNITUDE}.`
+      );
+    }
+    const res = Math.pow(leftVal, rightVal);
+    if (!Number.isFinite(res)) {
+      throw new InterpreterError("overflow_error", line, col, null, null, this.getLineText(line));
+    }
+    return res;
   }
 
   applyBinaryOp(op, leftVal, rightVal, line, col) {
@@ -980,86 +1157,11 @@ export class Interpreter {
       throw new InterpreterError("type_error", line, col, null, null, this.getLineText(line));
     }
 
-    if (op === "add") return leftVal + rightVal;
-    if (op === "sub") return leftVal - rightVal;
-    if (op === "mul") return leftVal * rightVal;
-
-    if (op === "div") {
-      if (rightVal === 0) {
-        throw new InterpreterError(
-          "divide_by_zero",
-          line,
-          col,
-          null,
-          null,
-          this.getLineText(line),
-          "Division by zero is undefined. Ensure the divisor is non-zero."
-        );
-      }
-      return leftVal / rightVal;
+    if (!this.binaryOpDispatch[op]) {
+      throw new InterpreterError(`Unknown binary operator: ${op}`, line, col);
     }
 
-    if (op === "idiv") {
-      if (rightVal === 0) {
-        throw new InterpreterError(
-          "divide_by_zero",
-          line,
-          col,
-          null,
-          null,
-          this.getLineText(line),
-          "Integer division by zero is undefined. Ensure the divisor is non-zero."
-        );
-      }
-      return Math.floor(leftVal / rightVal);
-    }
-
-    if (op === "mod") {
-      if (rightVal === 0) {
-        throw new InterpreterError(
-          "divide_by_zero",
-          line,
-          col,
-          null,
-          null,
-          this.getLineText(line),
-          "Modulo by zero is undefined. Ensure the right-hand operand of '%' is non-zero."
-        );
-      }
-      return ((leftVal % rightVal) + rightVal) % rightVal;
-    }
-
-    if (op === "pow") {
-      if (leftVal === 0 && rightVal < 0) {
-        throw new InterpreterError(
-          "divide_by_zero",
-          line,
-          col,
-          null,
-          null,
-          this.getLineText(line),
-          "Zero cannot be raised to a negative power."
-        );
-      }
-      if (Math.abs(rightVal) > Interpreter.MAX_EXPONENT_MAGNITUDE && Math.abs(leftVal) > 1) {
-        throw new InterpreterError(
-          "overflow_error",
-          line,
-          col,
-          null,
-          null,
-          this.getLineText(line),
-          `Keep exponent magnitude <= ${Interpreter.MAX_EXPONENT_MAGNITUDE}.`
-        );
-      }
-      const res = Math.pow(leftVal, rightVal);
-      if (!Number.isFinite(res)) {
-        throw new InterpreterError("overflow_error", line, col, null, null, this.getLineText(line));
-      }
-      return res;
-    }
-
-    throw new InterpreterError(`Unknown binary operator: ${op}`, line, col);
+    return this.binaryOpDispatch[op](leftVal, rightVal, line, col);
   }
 }
 
@@ -1068,34 +1170,14 @@ export class Interpreter {
 // ============================================================================
 
 export function formatError(error) {
-  const line = error.line ?? 1;
-  const col = error.column ?? 1;
-  let header = "";
-
-  if (error instanceof LexerError) {
-    header = `[Lexical Error] Line ${line}, Col ${col}: ${error.message}`;
-  } else if (error instanceof ParseError) {
-    header = `[Syntax Error] Line ${line}, Col ${col}: ${error.message}`;
-  } else if (error instanceof InterpreterError) {
-    const key = error.message;
-    if (key === "divide_by_zero") {
-      header = `[Runtime Error] Line ${line}, Col ${col}: Division or modulo by zero is undefined.`;
-    } else if (key === "undefined_variable") {
-      header = `[Runtime Error] Line ${line}, Col ${col}: Variable '${error.varName || "unknown"}' is not defined before use.`;
-    } else if (key === "negative_sqrt") {
-      header = `[Runtime Error] Line ${line}, Col ${col}: Cannot compute real square root of negative number (${error.detail}).`;
-    } else if (key === "overflow_error") {
-      header = `[Runtime Error] Line ${line}, Col ${col}: Numeric overflow — expression result exceeds safe computation limits.`;
-    } else if (key === "argument_error") {
-      header = `[Runtime Error] Line ${line}, Col ${col}: ${error.detail || error.message}`;
-    } else {
-      header = `[Runtime Error] Line ${line}, Col ${col}: Invalid operand types for arithmetic operation.`;
-    }
-  } else {
-    return error.message || String(error);
+  if (!(error instanceof PlangError)) {
+    return error?.message || String(error);
   }
 
-  const lines = [header];
+  const line = error.line ?? 1;
+  const col = error.column ?? 1;
+  const lines = [error.formatHeader(line, col)];
+
   if (error.sourceLine && error.sourceLine.trim() !== "") {
     const linePrefix = `  ${line} | `;
     const caretOffset = Math.max(0, col - 1);

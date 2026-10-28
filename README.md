@@ -41,8 +41,8 @@ This repository uses two host implementation languages to power **PLang v2.0** a
 | Component | Language / Framework | Role in the Project |
 | :--- | :--- | :--- |
 | **Target Language** | **PLang (`.plang`)** | Our custom hybrid arithmetic programming language with variables, functions, and REPL commands. |
-| **Core CLI & REPL Engine** | **Python 3** (`re`, `math`, `argparse`, `json`) | Implements the reference tokenizer, recursive-descent parser, AST nodes, tree-walk interpreter, and terminal REPL ([`lang.py`](lang.py), [`main.py`](main.py)). |
-| **Automated Test Suite** | **Python (`pytest`)** | 7 comprehensive test suites verifying integer/float arithmetic, precedence, hybrid keywords, and error trapping ([`test_lang.py`](test_lang.py)). |
+| **Core CLI & REPL Engine** | **Python 3** (`re`, `math`, `operator`, `argparse`, `json`) | Implements the reference tokenizer, recursive-descent parser, polymorphic AST nodes, table-driven interpreter, and terminal REPL ([`lang.py`](lang.py), [`main.py`](main.py)). |
+| **Automated Test Suite** | **Python (`pytest`, `ast`)** | 8 comprehensive test suites verifying integer/float arithmetic, precedence, hybrid keywords, error trapping, and architectural compliance ([`test_lang.py`](test_lang.py)). |
 | **Interactive Web Studio IDE** | **JavaScript (ES6+), React 19, Vite, TailwindCSS** | Browser-based IDE featuring a code editor, interactive console, live AST & token inspector, variable state monitor, and language handbook ([`web/`](web/)). |
 
 ---
@@ -70,9 +70,15 @@ flowchart LR
    * Enforces mathematical operator precedence (`()` & functions $\rightarrow$ unary `+/-` $\rightarrow$ right-associative `^` $\rightarrow$ `*`, `/`, `//`, `%` $\rightarrow$ `+`, `-`) by nesting [`ASTNode`](lang.py) objects into an **Abstract Syntax Tree (AST)**.
    * Traps grammatical format errors such as missing operands (`10 + * 5`), missing operators (`10 20`), unmatched or empty parentheses, and invalid assignment targets (`10 = x`).
 4. **Stage 4 — Semantic Evaluation (`Interpreter`)**:
-   * Recursively walks the AST, maintaining a runtime **Symbol Table** (`variables` dictionary) and storing the latest result in `ans`.
+   * Recursively walks the AST via **Polymorphic Node Dispatch** (`.execute()` / `.evaluate()`) and **Dictionary Dispatch Tables** backed by Python's `operator` module, maintaining a runtime **Symbol Table** (`variables` dictionary) and storing the latest result in `ans`.
    * Preserves exact `int` types for integer arithmetic (`+`, `-`, `*`, `//`, `%`, `^`).
    * Traps runtime errors (division/modulo by zero, negative square roots, undefined variables, constant reassignment, and exponent overflow).
+
+### 🧩 Architectural Highlight: Zero `if-else` & Zero Nested `if` Design
+Instead of relying on long `if-elif-else` chains or nested `if` blocks, **PLang v2.0** uses three clean Programming Language design patterns (verified automatically by `test_no_if_else_or_nested_ifs` in [`test_lang.py`](test_lang.py)):
+1. **Polymorphism (Object-Oriented AST & Exception Dispatch)**: Every [`ASTNode`](lang.py) subclass implements its own `.evaluate()`, `.execute()`, and `.format_tree()` methods, and every [`PlangError`](lang.py) subclass implements `.format_header()`.
+2. **Dictionary Dispatch Tables + Python `operator` Library**: Token classification (`TOKEN_HANDLER_DISPATCH`), statement parsing (`_statement_dispatch`), primary expression parsing (`_primary_dispatch`), unary/binary arithmetic (`_binary_op_dispatch` using `operator.add`, `operator.sub`, `operator.mul`, `operator.truediv`, `operator.floordiv`, `operator.mod`, `operator.pow`), and built-in math functions (`_single_arg_funcs`, `_variadic_funcs`) use O(1) dictionary lookups.
+3. **Flat Guard Clauses**: Every validation check is a single, un-nested guard clause that immediately `return`s or `raise`s.
 
 ---
 

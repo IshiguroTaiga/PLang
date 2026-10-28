@@ -5,12 +5,25 @@ Course: CMPSC 132 — Programming Languages (1st Semester, A.Y. 2025-2026)
 
 Module Overview:
     Implements the lexical analyzer (tokenizer), recursive-descent parser,
-    Abstract Syntax Tree (AST) node hierarchy, tree-walking interpreter,
-    AST visual formatter, and diagnostic error formatter for PLang.
+    polymorphic Abstract Syntax Tree (AST) node hierarchy, table-driven
+    interpreter, AST visual formatter, and diagnostic error formatter for PLang.
+
+Architectural Highlight (Zero `if-else` & Zero Nested `if` Design):
+    Instead of sprawling `if-elif-else` chains or nested `if` conditionals, PLang is
+    architected using three foundational Programming Language implementation patterns:
+    1. Polymorphic AST & Exception Dispatch (Object-Oriented Design):
+       Each `ASTNode` subclass implements its own `.evaluate()`, `.execute()`, and
+       `.format_tree()` methods, and each `PlangError` subclass formats its own header.
+    2. Dictionary Dispatch Tables & Standard Library `operator` Module:
+       Lexical token handlers, statement parsers, primary expression parsers, unary/binary
+       operators, and built-in math functions are dispatched in O(1) time via dictionaries.
+    3. Flat Guard Clauses:
+       All validation checks use single-level guard clauses that immediately `return` or
+       `raise`, completely eliminating `else`, `elif`, and nested `if` blocks.
 
 Programming Language Evaluation Criteria (Sebesta):
     1. Readability:
-       - Single unified, orthogonal syntax (no ambiguous character themes).
+       - Single unified, orthogonal syntax.
        - Supports explicit `let x = 10` declarations alongside concise `x = 10`.
        - Hybrid operator support: standard math symbols (`+`, `-`, `*`, `/`, `//`, `%`, `^`)
          paired with readable English keywords (`add`, `sub`, `mul`, `div`, `mod`, `pow`).
@@ -31,14 +44,17 @@ Programming Language Evaluation Criteria (Sebesta):
 Libraries Utilized:
     - `re` (Python Standard Library): Regular-expression lexical scanning.
     - `math` (Python Standard Library): Validated mathematical functions and constants.
+    - `operator` (Python Standard Library): First-class arithmetic operator functions
+      for table-driven evaluation without `if-else` chains.
 """
 
 import math
+import operator
 import re
 
 
 # ============================================================================
-# 1. EXCEPTION HIERARCHY
+# 1. POLYMORPHIC EXCEPTION HIERARCHY
 # ============================================================================
 
 class PlangError(Exception):
@@ -48,6 +64,8 @@ class PlangError(Exception):
     Class Variables:
         CATEGORY (str): Human-readable error category label used in diagnostic headers.
         DEFAULT_HINT (str): Default corrective hint displayed when no specific hint is provided.
+        TEMPLATE_KEY (str): Configuration lookup key for the error header format string.
+        DEFAULT_TEMPLATE (str): Fallback format string when `config` is omitted.
 
     Instance Attributes:
         message (str): Detailed description of the error condition.
@@ -59,6 +77,8 @@ class PlangError(Exception):
 
     CATEGORY = "PLang Error"
     DEFAULT_HINT = "Review the syntax and operand types at the indicated position."
+    TEMPLATE_KEY = "plang_error"
+    DEFAULT_TEMPLATE = "[{category}] Line {line}, Col {col}: {message}"
 
     def __init__(self, message, line=None, column=None, source_line=None, hint=None):
         super().__init__(message)
@@ -67,6 +87,26 @@ class PlangError(Exception):
         self.column = column
         self.source_line = source_line
         self.hint = hint or self.DEFAULT_HINT
+
+    def format_header(self, errors_config, line, col):
+        """
+        Polymorphically formats the diagnostic header line for this error instance.
+
+        Args:
+            errors_config (dict): Error template dictionary from `config.json`.
+            line (int): 1-based line number.
+            col (int): 1-based column number.
+
+        Returns:
+            str: Formatted single-line diagnostic header.
+        """
+        template = errors_config.get(self.TEMPLATE_KEY, self.DEFAULT_TEMPLATE)
+        return template.format(
+            category=self.CATEGORY,
+            message=self.message,
+            line=line,
+            col=col
+        )
 
 
 class LexerError(PlangError):
@@ -77,6 +117,8 @@ class LexerError(PlangError):
     Class Variables:
         CATEGORY (str): Error category label ('Lexical Error').
         DEFAULT_HINT (str): Default hint explaining valid PLang tokens and characters.
+        TEMPLATE_KEY (str): Configuration lookup key ('lexer_error').
+        DEFAULT_TEMPLATE (str): Fallback format string for lexical errors.
 
     Instance Attributes:
         char (str): The offending character or malformed token substring.
@@ -92,11 +134,18 @@ class LexerError(PlangError):
         "Use valid numbers (e.g., 42, 3.14), identifiers starting with a letter/underscore, "
         "and supported operators (+, -, *, /, //, %, ^, =)."
     )
+    TEMPLATE_KEY = "lexer_error"
+    DEFAULT_TEMPLATE = "[Lexical Error] Line {line}, Col {col}: {message}"
 
     def __init__(self, char, line, column, message=None, source_line=None, hint=None):
         msg = message or f"Unexpected character '{char}'"
         super().__init__(msg, line, column, source_line=source_line, hint=hint)
         self.char = char
+
+    def format_header(self, errors_config, line, col):
+        """Formats the lexical error header using the configured template."""
+        template = errors_config.get(self.TEMPLATE_KEY, self.DEFAULT_TEMPLATE)
+        return template.format(char=self.char, message=self.message, line=line, col=col)
 
 
 class ParseError(PlangError):
@@ -107,6 +156,8 @@ class ParseError(PlangError):
     Class Variables:
         CATEGORY (str): Error category label ('Syntax Error').
         DEFAULT_HINT (str): Default hint explaining proper statement and expression structure.
+        TEMPLATE_KEY (str): Configuration lookup key ('parse_error').
+        DEFAULT_TEMPLATE (str): Fallback format string for syntax errors.
 
     Instance Attributes:
         message (str): Description of the syntax/format violation.
@@ -121,6 +172,8 @@ class ParseError(PlangError):
         "Ensure every binary operator has a valid left and right operand, parentheses are balanced, "
         "and assignments follow 'let name = expression' or 'name = expression'."
     )
+    TEMPLATE_KEY = "parse_error"
+    DEFAULT_TEMPLATE = "[Syntax Error] Line {line}, Col {col}: {message}"
 
 
 class InterpreterError(PlangError):
@@ -131,6 +184,8 @@ class InterpreterError(PlangError):
     Class Variables:
         CATEGORY (str): Error category label ('Runtime Error').
         DEFAULT_HINT (str): Default hint for runtime evaluation errors.
+        RUNTIME_TEMPLATES (dict[str, str]): Table mapping internal runtime error keys
+            to their default diagnostic message templates.
 
     Instance Attributes:
         message (str): Internal error key (e.g., 'divide_by_zero') or descriptive message.
@@ -144,6 +199,14 @@ class InterpreterError(PlangError):
 
     CATEGORY = "Runtime Error"
     DEFAULT_HINT = "Verify that all variables are defined before use and divisors are non-zero."
+    RUNTIME_TEMPLATES = {
+        "divide_by_zero": "[Runtime Error] Line {line}, Col {col}: Division or modulo by zero is undefined.",
+        "undefined_variable": "[Runtime Error] Line {line}, Col {col}: Variable '{name}' is not defined before use.",
+        "negative_sqrt": "[Runtime Error] Line {line}, Col {col}: Cannot compute real square root of negative number ({value}).",
+        "overflow_error": "[Runtime Error] Line {line}, Col {col}: Numeric overflow — expression result exceeds safe computation limits.",
+        "argument_error": "[Runtime Error] Line {line}, Col {col}: {message}",
+        "type_error": "[Runtime Error] Line {line}, Col {col}: Invalid operand types for arithmetic operation.",
+    }
 
     def __init__(
         self,
@@ -158,6 +221,22 @@ class InterpreterError(PlangError):
         super().__init__(message, line, column, source_line=source_line, hint=hint)
         self.var_name = var_name
         self.detail = detail
+
+    def format_header(self, errors_config, line, col):
+        """
+        Formats the runtime error header via table lookup in `RUNTIME_TEMPLATES`
+        without `if-elif-else` branching.
+        """
+        err_key = (self.message in self.RUNTIME_TEMPLATES and self.message) or "type_error"
+        default_tmpl = self.RUNTIME_TEMPLATES[err_key]
+        template = errors_config.get(err_key, default_tmpl)
+        return template.format(
+            line=line,
+            col=col,
+            name=self.var_name,
+            value=self.detail or "negative",
+            message=self.detail or self.message
+        )
 
 
 # ============================================================================
@@ -195,15 +274,22 @@ class Token:
 
 
 # ============================================================================
-# 3. ABSTRACT SYNTAX TREE (AST) NODE HIERARCHY
+# 3. POLYMORPHIC ABSTRACT SYNTAX TREE (AST) NODE HIERARCHY
 # ============================================================================
 
 class ASTNode:
     """
     Abstract base class for all nodes in the PLang Abstract Syntax Tree (AST).
 
+    Implements polymorphic `.evaluate()`, `.execute()`, and `.format_tree()` methods
+    so the interpreter and AST visualizer operate via object-oriented dispatch
+    rather than `if-elif-else` type-checking chains.
+
     Class Variables:
         NODE_CATEGORY (str): High-level classification of the AST node ('Base').
+        BRANCH_GLYPHS (dict[bool, str]): Maps `is_last` boolean to ASCII tree branch connectors.
+        INDENT_GLYPHS (dict[bool, str]): Maps `is_last` boolean to child indentation prefixes.
+        TYPE_NAMES (dict[type, str]): Maps Python numeric types to AST display labels.
 
     Instance Attributes:
         line (int): 1-based source line number associated with this syntactic construct.
@@ -211,10 +297,40 @@ class ASTNode:
     """
 
     NODE_CATEGORY = "Base"
+    BRANCH_GLYPHS = {True: "└── ", False: "├── "}
+    INDENT_GLYPHS = {True: "    ", False: "│   "}
+    TYPE_NAMES = {int: "int", float: "float"}
 
     def __init__(self, line, col):
         self.line = line
         self.col = col
+
+    def _branch_prefix(self, indent, is_last):
+        """Returns `(line_prefix, child_indent)` for ASCII tree rendering via table lookup."""
+        return (
+            f"{indent}{self.BRANCH_GLYPHS[bool(is_last)]}",
+            f"{indent}{self.INDENT_GLYPHS[bool(is_last)]}"
+        )
+
+    def evaluate(self, interpreter):
+        """Polymorphically evaluates this expression node using `interpreter`."""
+        raise InterpreterError(f"Unknown AST node: {type(self).__name__}", self.line, self.col)
+
+    def execute(self, interpreter):
+        """
+        Polymorphically executes this node as a top-level program statement.
+        By default, evaluates the expression, binds `ans`, and returns the value.
+        Statement subclasses (`PrintNode`, `AssignNode`, `ClearNode`, `VarsNode`) override this.
+        """
+        val = self.evaluate(interpreter)
+        interpreter.variables["ans"] = val
+        interpreter.history.append({"type": "expr", "value": val})
+        return val
+
+    def format_tree(self, indent="", is_last=True):
+        """Polymorphically renders this AST node as an ASCII tree string."""
+        prefix, _ = self._branch_prefix(indent, is_last)
+        return f"{prefix}{type(self).__name__}"
 
 
 class NumberNode(ASTNode):
@@ -236,6 +352,16 @@ class NumberNode(ASTNode):
         super().__init__(line, col)
         self.value = value
 
+    def evaluate(self, interpreter):
+        """Returns the literal numeric value directly."""
+        return self.value
+
+    def format_tree(self, indent="", is_last=True):
+        """Formats the numeric literal and its exact data type (`int` or `float`)."""
+        prefix, _ = self._branch_prefix(indent, is_last)
+        dtype = self.TYPE_NAMES.get(type(self.value), "float")
+        return f"{prefix}NumberNode({self.value} : {dtype})"
+
 
 class VarNode(ASTNode):
     """
@@ -255,6 +381,15 @@ class VarNode(ASTNode):
     def __init__(self, name, line, col):
         super().__init__(line, col)
         self.name = name
+
+    def evaluate(self, interpreter):
+        """Resolves `self.name` in the interpreter symbol table or built-in constants."""
+        return interpreter.resolve_variable(self.name, self.line, self.col)
+
+    def format_tree(self, indent="", is_last=True):
+        """Formats the variable identifier leaf node."""
+        prefix, _ = self._branch_prefix(indent, is_last)
+        return f"{prefix}VarNode('{self.name}')"
 
 
 class UnaryOpNode(ASTNode):
@@ -279,6 +414,18 @@ class UnaryOpNode(ASTNode):
         super().__init__(line, col)
         self.op = op
         self.expr = expr
+
+    def evaluate(self, interpreter):
+        """Evaluates the operand and applies the unary operator via table lookup."""
+        return interpreter.apply_unary_op(self.op, self.expr.evaluate(interpreter), self.line, self.col)
+
+    def format_tree(self, indent="", is_last=True):
+        """Formats the unary operation and its child operand expression."""
+        prefix, child_indent = self._branch_prefix(indent, is_last)
+        return "\n".join([
+            f"{prefix}UnaryOpNode({self.op.upper()})",
+            self.expr.format_tree(child_indent, True)
+        ])
 
 
 class BinOpNode(ASTNode):
@@ -314,6 +461,22 @@ class BinOpNode(ASTNode):
         self.left = left
         self.right = right
 
+    def evaluate(self, interpreter):
+        """Evaluates both child operands and dispatches the binary operator."""
+        left_val = self.left.evaluate(interpreter)
+        right_val = self.right.evaluate(interpreter)
+        return interpreter._apply_binary_op(self.op, left_val, right_val, self.line, self.col)
+
+    def format_tree(self, indent="", is_last=True):
+        """Formats the binary operator node and its left and right subtrees."""
+        prefix, child_indent = self._branch_prefix(indent, is_last)
+        sym = self.OP_SYMBOLS.get(self.op, self.op)
+        return "\n".join([
+            f"{prefix}BinOpNode({self.op.upper()} '{sym}')",
+            self.left.format_tree(child_indent, False),
+            self.right.format_tree(child_indent, True)
+        ])
+
 
 class FuncCallNode(ASTNode):
     """
@@ -338,6 +501,18 @@ class FuncCallNode(ASTNode):
         super().__init__(line, col)
         self.func_name = func_name
         self.args = args
+
+    def evaluate(self, interpreter):
+        """Delegates function evaluation to the interpreter's function dispatch table."""
+        return interpreter._evaluate_function(self)
+
+    def format_tree(self, indent="", is_last=True):
+        """Formats the function call node and all argument subtrees."""
+        prefix, child_indent = self._branch_prefix(indent, is_last)
+        lines = [f"{prefix}FuncCallNode('{self.func_name}')"]
+        for idx, arg in enumerate(self.args):
+            lines.append(arg.format_tree(child_indent, idx == len(self.args) - 1))
+        return "\n".join(lines)
 
 
 class AssignNode(ASTNode):
@@ -364,6 +539,18 @@ class AssignNode(ASTNode):
         self.expr = expr
         self.op = op
 
+    def execute(self, interpreter):
+        """Executes the assignment statement against the interpreter symbol table."""
+        return interpreter.execute_assignment(self)
+
+    def format_tree(self, indent="", is_last=True):
+        """Formats the assignment statement node and its right-hand expression."""
+        prefix, child_indent = self._branch_prefix(indent, is_last)
+        return "\n".join([
+            f"{prefix}AssignNode('{self.name}' {self.op})",
+            self.expr.format_tree(child_indent, True)
+        ])
+
 
 class PrintNode(ASTNode):
     """
@@ -384,6 +571,23 @@ class PrintNode(ASTNode):
         super().__init__(line, col)
         self.expr = expr
 
+    def execute(self, interpreter):
+        """Evaluates `self.expr`, prints the formatted result, and records history."""
+        val = self.expr.evaluate(interpreter)
+        interpreter.variables["ans"] = val
+        prefix = interpreter.config.get("print_prefix", "[OUT] => ")
+        print(f"{prefix}{val}")
+        interpreter.history.append({"type": "print", "value": val})
+        return None
+
+    def format_tree(self, indent="", is_last=True):
+        """Formats the print statement node and its child expression."""
+        prefix, child_indent = self._branch_prefix(indent, is_last)
+        return "\n".join([
+            f"{prefix}PrintNode",
+            self.expr.format_tree(child_indent, True)
+        ])
+
 
 class ClearNode(ASTNode):
     """
@@ -401,6 +605,17 @@ class ClearNode(ASTNode):
 
     def __init__(self, line, col):
         super().__init__(line, col)
+
+    def execute(self, interpreter):
+        """Clears all variables in the interpreter environment."""
+        interpreter.variables.clear()
+        interpreter.history.append({"type": "clear"})
+        return None
+
+    def format_tree(self, indent="", is_last=True):
+        """Formats the clear command node."""
+        prefix, _ = self._branch_prefix(indent, is_last)
+        return f"{prefix}ClearNode()"
 
 
 class VarsNode(ASTNode):
@@ -420,9 +635,20 @@ class VarsNode(ASTNode):
     def __init__(self, line, col):
         super().__init__(line, col)
 
+    def execute(self, interpreter):
+        """Prints the formatted symbol table of active variables."""
+        interpreter._print_symbol_table()
+        interpreter.history.append({"type": "vars"})
+        return None
+
+    def format_tree(self, indent="", is_last=True):
+        """Formats the vars command node."""
+        prefix, _ = self._branch_prefix(indent, is_last)
+        return f"{prefix}VarsNode()"
+
 
 # ============================================================================
-# 4. LEXICAL ANALYZER (TOKENIZER)
+# 4. TABLE-DRIVEN LEXICAL ANALYZER (TOKENIZER)
 # ============================================================================
 
 RESERVED_KEYWORDS = {
@@ -430,13 +656,79 @@ RESERVED_KEYWORDS = {
     "add", "sub", "mul", "div", "mod", "pow"
 }
 
+CANONICAL_TOKEN_MAP = {
+    "ADD_KW": "ADD",
+    "SUB_KW": "SUB",
+    "MUL_KW": "MUL",
+    "IDIV_KW": "IDIV",
+    "MOD_KW": "MOD",
+    "POW_KW": "POW",
+    "POW_ALT": "POW",
+}
+
+
+def _raise_malformed_float(token_value, line, col, current_line_text, match_end, tokens, line_start):
+    """Raises a `LexerError` for floating-point numbers containing multiple decimal points."""
+    raise LexerError(
+        token_value,
+        line,
+        col,
+        message=f"Malformed numeric literal '{token_value}' (multiple decimal points).",
+        source_line=current_line_text,
+        hint="A floating-point number may contain at most one decimal point (e.g., 3.14)."
+    )
+
+
+def _raise_malformed_ident(token_value, line, col, current_line_text, match_end, tokens, line_start):
+    """Raises a `LexerError` when an identifier starts with a numeric digit."""
+    raise LexerError(
+        token_value,
+        line,
+        col,
+        message=f"Invalid token '{token_value}' — identifiers cannot begin with a digit.",
+        source_line=current_line_text,
+        hint=f"Rename the variable to start with a letter (e.g., 'var_{token_value}') or insert '*' for multiplication."
+    )
+
+
+def _handle_newline_token(raw_type):
+    """Returns a handler that records a `NEWLINE` token and advances the line counter."""
+    def _handler(token_value, line, col, current_line_text, match_end, tokens, line_start):
+        tokens.append(Token("NEWLINE", token_value, line, col))
+        return line + 1, match_end
+    return _handler
+
+
+def _handle_ignored_token(raw_type):
+    """Returns a handler that skips whitespace and comments without emitting a token."""
+    def _handler(token_value, line, col, current_line_text, match_end, tokens, line_start):
+        return line, line_start
+    return _handler
+
+
+def _handle_standard_token(raw_type):
+    """Returns a handler that normalizes `raw_type` and appends a `Token` to `tokens`."""
+    norm_type = CANONICAL_TOKEN_MAP.get(raw_type, raw_type)
+
+    def _handler(token_value, line, col, current_line_text, match_end, tokens, line_start):
+        tokens.append(Token(norm_type, token_value, line, col))
+        return line, line_start
+    return _handler
+
+
+TOKEN_HANDLER_DISPATCH = {
+    "MALFORMED_FLOAT": _raise_malformed_float,
+    "MALFORMED_IDENT": _raise_malformed_ident,
+    "NEWLINE": _handle_newline_token("NEWLINE"),
+    "SKIP": _handle_ignored_token("SKIP"),
+    "COMMENT": _handle_ignored_token("COMMENT"),
+}
+
 
 def tokenize(source_code, config=None):
     """
-    Scans raw PLang source code and converts it into a sequence of `Token` objects.
-
-    Enforces lexical reliability by trapping malformed numeric literals (such as `12.3.4`
-    or `12abc`) and unrecognized symbols with exact line and column coordinates.
+    Scans raw PLang source code and converts it into a sequence of `Token` objects
+    using a regular-expression state machine and a dictionary dispatch table.
 
     Args:
         source_code (str): Raw PLang program or single-line REPL input.
@@ -450,7 +742,7 @@ def tokenize(source_code, config=None):
     """
     config = config or {}
     comment_prefix = config.get("comment_prefix", "#")
-    source_lines = source_code.splitlines() if source_code else [""]
+    source_lines = source_code.splitlines() or [""]
 
     def get_source_line(line_num):
         if 1 <= line_num <= len(source_lines):
@@ -458,22 +750,15 @@ def tokenize(source_code, config=None):
         return ""
 
     regex_parts = [
-        # 1. Comments (from '#' to end of line)
         ("COMMENT", re.escape(comment_prefix) + r"[^\n]*"),
-
-        # 2. Malformed number checks (e.g. 12.34.56 or 123abc) for high-reliability error reporting
         ("MALFORMED_FLOAT", r"\d+\.\d*\.\d*"),
         ("MALFORMED_IDENT", r"\d+[a-zA-Z_][a-zA-Z0-9_]*"),
-
-        # 3. Multi-character symbolic operators (longest match first)
         ("ADD_ASSIGN", re.escape("+=")),
         ("SUB_ASSIGN", re.escape("-=")),
         ("MUL_ASSIGN", re.escape("*=")),
         ("DIV_ASSIGN", re.escape("/=")),
         ("IDIV", re.escape("//")),
         ("POW_ALT", re.escape("**")),
-
-        # 4. Word-based hybrid keywords (boundary-aware)
         ("LET", r"\blet\b"),
         ("PRINT", r"\bprint\b"),
         ("CLEAR", r"\bclear\b"),
@@ -484,8 +769,6 @@ def tokenize(source_code, config=None):
         ("IDIV_KW", r"\bdiv\b"),
         ("MOD_KW", r"\bmod\b"),
         ("POW_KW", r"\bpow\b"),
-
-        # 5. Single-character symbolic operators & punctuation
         ("ADD", re.escape("+")),
         ("SUB", re.escape("-")),
         ("MUL", re.escape("*")),
@@ -496,30 +779,13 @@ def tokenize(source_code, config=None):
         ("LPAREN", re.escape("(")),
         ("RPAREN", re.escape(")")),
         ("COMMA", re.escape(",")),
-
-        # 6. Numeric literals (integers and decimals)
         ("NUMBER", r"\d+(?:\.\d+)?"),
-
-        # 7. Valid identifiers
         ("IDENT", r"[a-zA-Z_][a-zA-Z0-9_]*"),
-
-        # 8. Newlines and horizontal whitespace
         ("NEWLINE", r"\n"),
         ("SKIP", r"[ \t\r]+"),
     ]
 
     master_regex = re.compile("|".join(f"(?P<{name}>{pat})" for name, pat in regex_parts))
-
-    # Normalize keyword alias token types into canonical operator token types
-    canonical_type_map = {
-        "ADD_KW": "ADD",
-        "SUB_KW": "SUB",
-        "MUL_KW": "MUL",
-        "IDIV_KW": "IDIV",
-        "MOD_KW": "MOD",
-        "POW_KW": "POW",
-        "POW_ALT": "POW",
-    }
 
     tokens = []
     line = 1
@@ -544,37 +810,10 @@ def tokenize(source_code, config=None):
 
         raw_type = match.lastgroup
         token_value = match.group(raw_type)
-
-        if raw_type == "MALFORMED_FLOAT":
-            raise LexerError(
-                token_value,
-                line,
-                col,
-                message=f"Malformed numeric literal '{token_value}' (multiple decimal points).",
-                source_line=current_line_text,
-                hint="A floating-point number may contain at most one decimal point (e.g., 3.14)."
-            )
-
-        if raw_type == "MALFORMED_IDENT":
-            raise LexerError(
-                token_value,
-                line,
-                col,
-                message=f"Invalid token '{token_value}' — identifiers cannot begin with a digit.",
-                source_line=current_line_text,
-                hint=f"Rename the variable to start with a letter (e.g., 'var_{token_value}') or insert '*' for multiplication."
-            )
-
-        if raw_type == "NEWLINE":
-            tokens.append(Token("NEWLINE", token_value, line, col))
-            line += 1
-            line_start = match.end()
-        elif raw_type in ("SKIP", "COMMENT"):
-            pass
-        else:
-            norm_type = canonical_type_map.get(raw_type, raw_type)
-            tokens.append(Token(norm_type, token_value, line, col))
-
+        handler = TOKEN_HANDLER_DISPATCH.get(raw_type) or _handle_standard_token(raw_type)
+        line, line_start = handler(
+            token_value, line, col, current_line_text, match.end(), tokens, line_start
+        )
         pos = match.end()
 
     tokens.append(Token("EOF", "", line, pos - line_start + 1))
@@ -582,13 +821,17 @@ def tokenize(source_code, config=None):
 
 
 # ============================================================================
-# 5. RECURSIVE-DESCENT PARSER
+# 5. TABLE-DRIVEN RECURSIVE-DESCENT PARSER
 # ============================================================================
 
 class Parser:
     """
     Recursive-descent parser that transforms a stream of lexical `Token` objects
     into a validated Abstract Syntax Tree (AST) obeying mathematical operator precedence.
+
+    Uses dictionary dispatch tables (`_statement_dispatch` and `_primary_dispatch`)
+    and flat guard clauses so that grammatical analysis requires zero `if-else`
+    chains and zero nested `if` blocks.
 
     Formal EBNF Grammar:
         Program     ::= Statement* EOF
@@ -609,6 +852,8 @@ class Parser:
         COMPOUND_OP_MAP (dict[str, str]): Maps compound assignment token types to operator symbols.
         ADDITIVE_OPS (tuple[str, ...]): Token types handled at the additive precedence level.
         MULTIPLICATIVE_OPS (tuple[str, ...]): Token types handled at the multiplicative precedence level.
+        UNARY_OP_MAP (dict[str, str]): Maps unary prefix token types to normalized unary op codes.
+        NUMBER_CONVERTERS (dict[bool, type]): Maps decimal point presence (`True`/`False`) to `float`/`int`.
 
     Instance Attributes:
         tokens (list[Token]): Complete list of tokens produced by `tokenize()`.
@@ -626,12 +871,25 @@ class Parser:
     }
     ADDITIVE_OPS = ("ADD", "SUB")
     MULTIPLICATIVE_OPS = ("MUL", "DIV", "IDIV", "MOD")
+    UNARY_OP_MAP = {"SUB": "sub", "ADD": "add"}
+    NUMBER_CONVERTERS = {True: float, False: int}
 
     def __init__(self, tokens, config=None, source_code=""):
         self.tokens = tokens
         self.pos = 0
         self.config = config or {}
-        self.source_lines = source_code.splitlines() if source_code else []
+        self.source_lines = (source_code and source_code.splitlines()) or []
+        self._statement_dispatch = {
+            "LET": self._parse_let_statement,
+            "PRINT": self._parse_print_statement,
+            "CLEAR": self._parse_clear_statement,
+            "VARS": self._parse_vars_statement,
+        }
+        self._primary_dispatch = {
+            "NUMBER": self._parse_number_primary,
+            "IDENT": self._parse_ident_primary,
+            "LPAREN": self._parse_grouped_primary,
+        }
 
     def _get_line_text(self, line_num):
         """Returns the raw source line string for 1-based `line_num` if available."""
@@ -650,6 +908,12 @@ class Parser:
             return self.tokens[idx]
         return self.tokens[-1]
 
+    def _display_token_value(self, token, eof_label="end of input"):
+        """Returns a human-readable representation of `token` for error diagnostics."""
+        if token.type == "EOF":
+            return eof_label
+        return token.value
+
     def consume(self, expected_type, custom_message=None, hint=None):
         """
         Consumes and returns the current token if its type matches `expected_type`,
@@ -660,7 +924,7 @@ class Parser:
             self.pos += 1
             return token
 
-        shown = token.value if token.type != "EOF" else "end of input"
+        shown = self._display_token_value(token, "end of input")
         msg = custom_message or f"Expected '{expected_type}', but found '{shown}'."
         raise ParseError(
             msg,
@@ -670,6 +934,18 @@ class Parser:
             hint=hint
         )
 
+    def _skip_newlines(self):
+        """Consumes any consecutive `NEWLINE` tokens at the current cursor position."""
+        while self.current_token().type == "NEWLINE":
+            self.consume("NEWLINE")
+
+    def _verify_statement_boundary(self):
+        """Ensures a statement ends cleanly with a `NEWLINE` or `EOF`."""
+        curr = self.current_token()
+        if curr.type not in ("NEWLINE", "EOF"):
+            self._raise_trailing_token_error(curr)
+        self._skip_newlines()
+
     def parse_program(self):
         """
         Parses a complete multi-statement PLang program until `EOF`.
@@ -678,21 +954,11 @@ class Parser:
             list[ASTNode]: Ordered list of statement AST nodes.
         """
         statements = []
-        while self.current_token().type == "NEWLINE":
-            self.consume("NEWLINE")
+        self._skip_newlines()
 
         while self.current_token().type != "EOF":
-            stmt = self.parse_statement()
-            statements.append(stmt)
-
-            curr = self.current_token()
-            if curr.type == "NEWLINE":
-                self.consume("NEWLINE")
-            elif curr.type != "EOF":
-                self._raise_trailing_token_error(curr)
-
-            while self.current_token().type == "NEWLINE":
-                self.consume("NEWLINE")
+            statements.append(self.parse_statement())
+            self._verify_statement_boundary()
 
         return statements
 
@@ -729,83 +995,88 @@ class Parser:
             source_line=self._get_line_text(token.line)
         )
 
+    def _validate_let_target(self, ident_tok):
+        """Validates that the token following `let` is a non-reserved identifier."""
+        if ident_tok.type == "IDENT":
+            return
+        if ident_tok.value in RESERVED_KEYWORDS:
+            raise ParseError(
+                f"Cannot use reserved keyword '{ident_tok.value}' as a variable name.",
+                ident_tok.line,
+                ident_tok.column,
+                source_line=self._get_line_text(ident_tok.line),
+                hint="Choose a descriptive variable name that is not a reserved language keyword."
+            )
+        shown = self._display_token_value(ident_tok, "end of line")
+        raise ParseError(
+            f"Expected a variable name after 'let', but got '{shown}'.",
+            ident_tok.line,
+            ident_tok.column,
+            source_line=self._get_line_text(ident_tok.line),
+            hint="Syntax for variable declaration is: let <variable_name> = <expression>"
+        )
+
+    def _parse_let_statement(self):
+        """Parses an explicit variable declaration (`let <ident> = <expr>`)."""
+        let_tok = self.consume("LET")
+        ident_tok = self.current_token()
+        self._validate_let_target(ident_tok)
+        self.consume("IDENT")
+
+        bad = self.current_token()
+        shown = self._display_token_value(bad, "end of line")
+        self.consume(
+            "ASSIGN",
+            custom_message=f"Expected '=' after variable '{ident_tok.value}' in 'let' declaration, got '{shown}'.",
+            hint=f"Write: let {ident_tok.value} = <expression>"
+        )
+        expr = self.parse_expr()
+        return AssignNode(ident_tok.value, expr, let_tok.line, let_tok.column, op="=")
+
+    def _parse_print_statement(self):
+        """Parses an explicit output instruction (`print <expr>`)."""
+        token = self.consume("PRINT")
+        if self.current_token().type in ("NEWLINE", "EOF"):
+            raise ParseError(
+                "Missing expression after 'print' statement.",
+                token.line,
+                token.column,
+                source_line=self._get_line_text(token.line),
+                hint="Provide a value or expression to print, e.g., 'print 10 + 5' or 'print x'."
+            )
+        return PrintNode(self.parse_expr(), token.line, token.column)
+
+    def _parse_clear_statement(self):
+        """Parses an environment reset instruction (`clear`)."""
+        token = self.consume("CLEAR")
+        return ClearNode(token.line, token.column)
+
+    def _parse_vars_statement(self):
+        """Parses a symbol table inspection instruction (`vars`)."""
+        token = self.consume("VARS")
+        return VarsNode(token.line, token.column)
+
+    def _parse_assignment_statement(self):
+        """Parses a concise or compound variable assignment (`x = expr`, `x += expr`)."""
+        ident_tok = self.consume("IDENT")
+        op_tok = self.consume(self.current_token().type)
+        op_symbol = self.COMPOUND_OP_MAP[op_tok.type]
+        expr = self.parse_expr()
+        return AssignNode(ident_tok.value, expr, ident_tok.line, ident_tok.column, op=op_symbol)
+
     def parse_statement(self):
         """
-        Parses a single top-level PLang statement (`let`, assignment, `print`, `clear`, `vars`, or expression).
+        Dispatches and parses a single top-level PLang statement without `if-else`
+        or nested `if` blocks.
         """
         token = self.current_token()
 
-        # 1. Explicit variable declaration: `let x = expr`
-        if token.type == "LET":
-            let_tok = self.consume("LET")
-            ident_tok = self.current_token()
-            if ident_tok.type != "IDENT":
-                shown = ident_tok.value if ident_tok.type != "EOF" else "end of line"
-                if ident_tok.value in RESERVED_KEYWORDS:
-                    raise ParseError(
-                        f"Cannot use reserved keyword '{ident_tok.value}' as a variable name.",
-                        ident_tok.line,
-                        ident_tok.column,
-                        source_line=self._get_line_text(ident_tok.line),
-                        hint="Choose a descriptive variable name that is not a reserved language keyword."
-                    )
-                raise ParseError(
-                    f"Expected a variable name after 'let', but got '{shown}'.",
-                    ident_tok.line,
-                    ident_tok.column,
-                    source_line=self._get_line_text(ident_tok.line),
-                    hint="Syntax for variable declaration is: let <variable_name> = <expression>"
-                )
-            self.consume("IDENT")
-            if self.current_token().type != "ASSIGN":
-                bad = self.current_token()
-                shown = bad.value if bad.type != "EOF" else "end of line"
-                raise ParseError(
-                    f"Expected '=' after variable '{ident_tok.value}' in 'let' declaration, got '{shown}'.",
-                    bad.line,
-                    bad.column,
-                    source_line=self._get_line_text(bad.line),
-                    hint=f"Write: let {ident_tok.value} = <expression>"
-                )
-            self.consume("ASSIGN")
-            expr = self.parse_expr()
-            return AssignNode(ident_tok.value, expr, let_tok.line, let_tok.column, op="=")
+        if token.type in self._statement_dispatch:
+            return self._statement_dispatch[token.type]()
 
-        # 2. Output statement: `print <expr>`
-        if token.type == "PRINT":
-            self.consume("PRINT")
-            if self.current_token().type in ("NEWLINE", "EOF"):
-                raise ParseError(
-                    "Missing expression after 'print' statement.",
-                    token.line,
-                    token.column,
-                    source_line=self._get_line_text(token.line),
-                    hint="Provide a value or expression to print, e.g., 'print 10 + 5' or 'print x'."
-                )
-            expr = self.parse_expr()
-            return PrintNode(expr, token.line, token.column)
-
-        # 3. Environment reset statement: `clear`
-        if token.type == "CLEAR":
-            self.consume("CLEAR")
-            return ClearNode(token.line, token.column)
-
-        # 4. Symbol table inspection statement: `vars`
-        if token.type == "VARS":
-            self.consume("VARS")
-            return VarsNode(token.line, token.column)
-
-        # 5. Concise or compound variable assignment: `x = expr`, `x += expr`, etc.
         if token.type == "IDENT" and self.peek_token().type in self.COMPOUND_OP_MAP:
-            name = token.value
-            self.consume("IDENT")
-            op_tok = self.current_token()
-            self.consume(op_tok.type)
-            op_symbol = self.COMPOUND_OP_MAP[op_tok.type]
-            expr = self.parse_expr()
-            return AssignNode(name, expr, token.line, token.column, op=op_symbol)
+            return self._parse_assignment_statement()
 
-        # 6. Guard against assigning to reserved keyword without `let` (e.g., `print = 5`)
         if token.type in Token.STATEMENT_KW_TYPES and self.peek_token().type in self.COMPOUND_OP_MAP:
             raise ParseError(
                 f"Cannot assign to reserved keyword '{token.value}'.",
@@ -815,10 +1086,7 @@ class Parser:
                 hint="Choose a non-reserved identifier name for your variable."
             )
 
-        # 7. Default: Arithmetic expression statement
         expr = self.parse_expr()
-
-        # Check if user wrote an invalid assignment like `10 = x` or `(a + b) = 5`
         if self.current_token().type in self.COMPOUND_OP_MAP:
             bad = self.current_token()
             raise ParseError(
@@ -828,118 +1096,112 @@ class Parser:
                 source_line=self._get_line_text(bad.line),
                 hint="Place a single variable identifier on the left side of '=' (e.g., 'x = 10')."
             )
-
         return expr
 
     def parse_expr(self):
-        """
-        Parses additive expressions (`+`, `-`, `add`, `sub`) with left-associativity.
-        """
+        """Parses additive expressions (`+`, `-`, `add`, `sub`) with left-associativity."""
         node = self.parse_term()
         while self.current_token().type in self.ADDITIVE_OPS:
-            op_token = self.current_token()
-            self.consume(op_token.type)
+            op_token = self.consume(self.current_token().type)
             right = self.parse_term()
             node = BinOpNode(op_token.type.lower(), node, right, op_token.line, op_token.column)
         return node
 
     def parse_term(self):
-        """
-        Parses multiplicative expressions (`*`, `/`, `//`, `%`, `mul`, `div`, `mod`) with left-associativity.
-        """
+        """Parses multiplicative expressions (`*`, `/`, `//`, `%`, `mul`, `div`, `mod`) with left-associativity."""
         node = self.parse_exponent()
         while self.current_token().type in self.MULTIPLICATIVE_OPS:
-            op_token = self.current_token()
-            self.consume(op_token.type)
+            op_token = self.consume(self.current_token().type)
             right = self.parse_exponent()
             node = BinOpNode(op_token.type.lower(), node, right, op_token.line, op_token.column)
         return node
 
     def parse_exponent(self):
-        """
-        Parses exponentiation expressions (`^`, `**`, `pow`) with standard right-associativity.
-        """
+        """Parses exponentiation expressions (`^`, `**`, `pow`) with standard right-associativity."""
         node = self.parse_unary()
         if self.current_token().type == "POW":
-            op_token = self.current_token()
-            self.consume("POW")
+            op_token = self.consume("POW")
             right = self.parse_exponent()
-            node = BinOpNode("pow", node, right, op_token.line, op_token.column)
+            return BinOpNode("pow", node, right, op_token.line, op_token.column)
         return node
 
     def parse_unary(self):
-        """
-        Parses unary prefix operators (`-x`, `+x`) before primary factors.
-        Wait: Note that in standard math, `-2 ^ 2` or `2 ^ -3`: having `parse_exponent` call `parse_unary`
-        allows `2 ^ -3` to work seamlessly (`2 ^ (-3) = 0.125`)!
-        """
+        """Parses unary prefix operators (`-x`, `+x`) via `UNARY_OP_MAP` lookup."""
         token = self.current_token()
-        if token.type == "SUB":
-            op_token = self.consume("SUB")
-            operand = self.parse_unary()
-            return UnaryOpNode("sub", operand, op_token.line, op_token.column)
-        if token.type == "ADD":
-            op_token = self.consume("ADD")
-            operand = self.parse_unary()
-            return UnaryOpNode("add", operand, op_token.line, op_token.column)
+        if token.type in self.UNARY_OP_MAP:
+            op_token = self.consume(token.type)
+            return UnaryOpNode(
+                self.UNARY_OP_MAP[token.type],
+                self.parse_unary(),
+                op_token.line,
+                op_token.column
+            )
         return self.parse_primary()
+
+    def _parse_number_primary(self):
+        """Parses an integer or floating-point numeric literal into a `NumberNode`."""
+        token = self.consume("NUMBER")
+        converter = self.NUMBER_CONVERTERS["." in token.value]
+        return NumberNode(converter(token.value), token.line, token.column)
+
+    def _parse_argument_list(self):
+        """Parses zero or more comma-separated argument expressions inside a function call."""
+        if self.current_token().type == "RPAREN":
+            return []
+        args = [self.parse_expr()]
+        while self.current_token().type == "COMMA":
+            self.consume("COMMA")
+            args.append(self.parse_expr())
+        return args
+
+    def _parse_function_call(self, ident_tok):
+        """Parses a function call `ident(arg1, arg2, ...)` after the identifier token."""
+        self.consume("LPAREN")
+        args = self._parse_argument_list()
+        self.consume(
+            "RPAREN",
+            custom_message=f"Unclosed '(' in call to function '{ident_tok.value}()' — expected ')'.",
+            hint=f"Add a closing ')' to complete the '{ident_tok.value}(...)' function call."
+        )
+        return FuncCallNode(ident_tok.value, args, ident_tok.line, ident_tok.column)
+
+    def _parse_ident_primary(self):
+        """Parses an identifier reference (`VarNode`) or built-in function call (`FuncCallNode`)."""
+        ident_tok = self.consume("IDENT")
+        if self.current_token().type == "LPAREN":
+            return self._parse_function_call(ident_tok)
+        return VarNode(ident_tok.value, ident_tok.line, ident_tok.column)
+
+    def _parse_grouped_primary(self):
+        """Parses a parenthesized sub-expression `( <expr> )` with balanced delimiter checks."""
+        open_tok = self.consume("LPAREN")
+        if self.current_token().type == "RPAREN":
+            raise ParseError(
+                "Empty parentheses '()' do not contain an expression.",
+                open_tok.line,
+                open_tok.column,
+                source_line=self._get_line_text(open_tok.line),
+                hint="Place a valid arithmetic expression inside the parentheses, e.g., '(10 + 5)'."
+            )
+        expr = self.parse_expr()
+        curr = self.current_token()
+        self.consume(
+            "RPAREN",
+            custom_message=f"Unclosed parenthesis '(' opened at line {open_tok.line}, col {open_tok.column} — expected ')'.",
+            hint="Add a matching closing parenthesis ')' at the end of the grouped sub-expression."
+        )
+        return expr
 
     def parse_primary(self):
         """
-        Parses primary arithmetic units: numeric literals, function calls, variable identifiers,
-        and parenthesized sub-expressions.
+        Dispatches primary arithmetic units (`NUMBER`, `IDENT`, `LPAREN`) via
+        `self._primary_dispatch` and traps malformed expression tokens.
         """
         token = self.current_token()
 
-        if token.type == "NUMBER":
-            self.consume("NUMBER")
-            val = float(token.value) if "." in token.value else int(token.value)
-            return NumberNode(val, token.line, token.column)
+        if token.type in self._primary_dispatch:
+            return self._primary_dispatch[token.type]()
 
-        if token.type == "IDENT":
-            ident_tok = self.consume("IDENT")
-            # Check for function call `func(arg1, arg2, ...)`
-            if self.current_token().type == "LPAREN":
-                self.consume("LPAREN")
-                args = []
-                if self.current_token().type != "RPAREN":
-                    args.append(self.parse_expr())
-                    while self.current_token().type == "COMMA":
-                        self.consume("COMMA")
-                        args.append(self.parse_expr())
-                self.consume(
-                    "RPAREN",
-                    custom_message=f"Unclosed '(' in call to function '{ident_tok.value}()' — expected ')'.",
-                    hint=f"Add a closing ')' to complete the '{ident_tok.value}(...)' function call."
-                )
-                return FuncCallNode(ident_tok.value, args, ident_tok.line, ident_tok.column)
-
-            return VarNode(ident_tok.value, ident_tok.line, ident_tok.column)
-
-        if token.type == "LPAREN":
-            open_tok = self.consume("LPAREN")
-            if self.current_token().type == "RPAREN":
-                raise ParseError(
-                    "Empty parentheses '()' do not contain an expression.",
-                    open_tok.line,
-                    open_tok.column,
-                    source_line=self._get_line_text(open_tok.line),
-                    hint="Place a valid arithmetic expression inside the parentheses, e.g., '(10 + 5)'."
-                )
-            expr = self.parse_expr()
-            if self.current_token().type != "RPAREN":
-                curr = self.current_token()
-                raise ParseError(
-                    f"Unclosed parenthesis '(' opened at line {open_tok.line}, col {open_tok.column} — expected ')'.",
-                    curr.line,
-                    curr.column,
-                    source_line=self._get_line_text(curr.line),
-                    hint="Add a matching closing parenthesis ')' at the end of the grouped sub-expression."
-                )
-            self.consume("RPAREN")
-            return expr
-
-        # Diagnostic messages for common format errors
         if token.type in ("NEWLINE", "EOF"):
             raise ParseError(
                 "Incomplete expression — expected a number, variable, or '(' before end of line.",
@@ -976,18 +1238,21 @@ class Parser:
 
 
 # ============================================================================
-# 6. TREE-WALK INTERPRETER
+# 6. TABLE-DRIVEN INTERPRETER (WITH PYTHON `operator` LIBRARY)
 # ============================================================================
 
 class Interpreter:
     """
-    Tree-walking interpreter that evaluates PLang AST nodes, maintains the
-    runtime variable symbol table, enforces integer/float precision, and traps
-    runtime arithmetic errors.
+    Polymorphic, table-driven interpreter that evaluates PLang AST nodes,
+    maintains the runtime variable symbol table, enforces integer/float precision,
+    and traps runtime arithmetic errors without `if-else` or nested `if` blocks.
 
     Class Variables:
         BUILT_IN_CONSTANTS (dict[str, float]): Read-only mathematical constants pre-loaded in scope.
         MAX_EXPONENT_MAGNITUDE (int): Maximum safe exponent magnitude to prevent CPU/memory hangs.
+        UNARY_FUNCTIONS (dict[str, callable]): Maps unary operator codes to `operator.pos`/`operator.neg`.
+        COMPOUND_BINARY_OP_MAP (dict[str, str]): Maps compound assignment symbols to binary op codes.
+        TYPE_LABELS (dict[type, str]): Maps Python numeric types to symbol table display strings.
 
     Instance Attributes:
         variables (dict[str, int | float]): Symbol table mapping variable identifiers to numeric values.
@@ -1001,16 +1266,50 @@ class Interpreter:
         "E": math.e,
     }
     MAX_EXPONENT_MAGNITUDE = 10000
+    UNARY_FUNCTIONS = {
+        "add": operator.pos,
+        "sub": operator.neg,
+    }
+    COMPOUND_BINARY_OP_MAP = {
+        "+=": "add",
+        "-=": "sub",
+        "*=": "mul",
+        "/=": "div",
+    }
+    TYPE_LABELS = {
+        int: "integer",
+        float: "float",
+    }
 
     def __init__(self, config=None, source_code=""):
         self.variables = {}
         self.config = config or {}
-        self.source_lines = source_code.splitlines() if source_code else []
+        self.source_lines = (source_code and source_code.splitlines()) or []
         self.history = []
+        self._binary_op_dispatch = {
+            "add": lambda a, b, ln, col: operator.add(a, b),
+            "sub": lambda a, b, ln, col: operator.sub(a, b),
+            "mul": lambda a, b, ln, col: operator.mul(a, b),
+            "div": self._op_true_div,
+            "idiv": self._op_floor_div,
+            "mod": self._op_modulo,
+            "pow": self._op_power,
+        }
+        self._single_arg_funcs = {
+            "abs": lambda x, node: abs(x),
+            "round": lambda x, node: int(round(x)),
+            "int": lambda x, node: int(x),
+            "float": lambda x, node: float(x),
+            "sqrt": self._eval_sqrt,
+        }
+        self._variadic_funcs = {
+            "min": min,
+            "max": max,
+        }
 
     def set_source_code(self, source_code):
         """Updates the stored source code lines for accurate error reporting in REPL or file runs."""
-        self.source_lines = source_code.splitlines() if source_code else []
+        self.source_lines = (source_code and source_code.splitlines()) or []
 
     def _get_line_text(self, line_num):
         """Retrieves the 1-based source line string if available."""
@@ -1020,73 +1319,77 @@ class Interpreter:
 
     def evaluate_statement(self, stmt):
         """
-        Executes a single top-level AST statement node.
-
-        Args:
-            stmt (ASTNode): Parsed statement node (`PrintNode`, `ClearNode`, `VarsNode`, `AssignNode`, or expression).
-
-        Returns:
-            int | float | None: The evaluated numeric value for standalone expressions, or `None` for command statements.
+        Polymorphically executes a single top-level AST statement node by delegating
+        to `stmt.execute(self)`.
         """
-        if isinstance(stmt, PrintNode):
-            val = self.evaluate_expr(stmt.expr)
-            self.variables["ans"] = val
-            prefix = self.config.get("print_prefix", "[OUT] => ")
-            print(f"{prefix}{val}")
-            self.history.append({"type": "print", "value": val})
-            return None
+        return stmt.execute(self)
 
-        if isinstance(stmt, ClearNode):
-            self.variables.clear()
-            self.history.append({"type": "clear"})
-            return None
+    def evaluate_expr(self, node):
+        """
+        Polymorphically evaluates an expression AST node by delegating to `node.evaluate(self)`.
+        """
+        return node.evaluate(self)
 
-        if isinstance(stmt, VarsNode):
-            self._print_symbol_table()
-            self.history.append({"type": "vars"})
-            return None
+    def resolve_variable(self, name, line, col):
+        """Resolves an identifier from `self.variables` or `BUILT_IN_CONSTANTS`."""
+        if name in self.variables:
+            return self.variables[name]
+        if name in self.BUILT_IN_CONSTANTS:
+            return self.BUILT_IN_CONSTANTS[name]
+        raise InterpreterError(
+            "undefined_variable",
+            line,
+            col,
+            var_name=name,
+            source_line=self._get_line_text(line),
+            hint=f"Define '{name}' first using: let {name} = <value>"
+        )
 
-        if isinstance(stmt, AssignNode):
-            if stmt.name in self.BUILT_IN_CONSTANTS:
-                raise InterpreterError(
-                    "argument_error",
-                    stmt.line,
-                    stmt.col,
-                    detail=f"Cannot reassign built-in mathematical constant '{stmt.name}'.",
-                    source_line=self._get_line_text(stmt.line),
-                    hint=f"'{stmt.name}' is a constant ({self.BUILT_IN_CONSTANTS[stmt.name]}). Choose a different variable name."
-                )
+    def apply_unary_op(self, op, val, line, col):
+        """Applies a unary arithmetic operator via `UNARY_FUNCTIONS` table lookup."""
+        if op not in self.UNARY_FUNCTIONS:
+            raise InterpreterError(
+                f"Unknown unary operator: {op}",
+                line,
+                col,
+                source_line=self._get_line_text(line)
+            )
+        return self.UNARY_FUNCTIONS[op](val)
 
-            rhs_val = self.evaluate_expr(stmt.expr)
+    def _compute_assigned_value(self, stmt, rhs_val):
+        """Computes the new value for a simple (`=`) or compound (`+=`, `-=`, etc.) assignment."""
+        if stmt.op == "=":
+            return rhs_val
+        if stmt.name not in self.variables:
+            raise InterpreterError(
+                "undefined_variable",
+                stmt.line,
+                stmt.col,
+                var_name=stmt.name,
+                source_line=self._get_line_text(stmt.line),
+                hint=f"Initialize '{stmt.name}' with 'let {stmt.name} = ...' before using '{stmt.op}'."
+            )
+        mapped_op = self.COMPOUND_BINARY_OP_MAP[stmt.op]
+        return self._apply_binary_op(mapped_op, self.variables[stmt.name], rhs_val, stmt.line, stmt.col)
 
-            if stmt.op == "=":
-                final_val = rhs_val
-            else:
-                if stmt.name not in self.variables:
-                    raise InterpreterError(
-                        "undefined_variable",
-                        stmt.line,
-                        stmt.col,
-                        var_name=stmt.name,
-                        source_line=self._get_line_text(stmt.line),
-                        hint=f"Initialize '{stmt.name}' with 'let {stmt.name} = ...' before using '{stmt.op}'."
-                    )
-                current_val = self.variables[stmt.name]
-                op_map = {"+=": "add", "-=": "sub", "*=": "mul", "/=": "div"}
-                final_val = self._apply_binary_op(
-                    op_map[stmt.op], current_val, rhs_val, stmt.line, stmt.col
-                )
+    def execute_assignment(self, stmt):
+        """Executes an `AssignNode` statement and updates the symbol table."""
+        if stmt.name in self.BUILT_IN_CONSTANTS:
+            raise InterpreterError(
+                "argument_error",
+                stmt.line,
+                stmt.col,
+                detail=f"Cannot reassign built-in mathematical constant '{stmt.name}'.",
+                source_line=self._get_line_text(stmt.line),
+                hint=f"'{stmt.name}' is a constant ({self.BUILT_IN_CONSTANTS[stmt.name]}). Choose a different variable name."
+            )
 
-            self.variables[stmt.name] = final_val
-            self.variables["ans"] = final_val
-            self.history.append({"type": "assign", "name": stmt.name, "value": final_val})
-            return None
-
-        # Standalone expression statement
-        val = self.evaluate_expr(stmt)
-        self.variables["ans"] = val
-        self.history.append({"type": "expr", "value": val})
-        return val
+        rhs_val = stmt.expr.evaluate(self)
+        final_val = self._compute_assigned_value(stmt, rhs_val)
+        self.variables[stmt.name] = final_val
+        self.variables["ans"] = final_val
+        self.history.append({"type": "assign", "name": stmt.name, "value": final_val})
+        return None
 
     def _print_symbol_table(self):
         """Prints a formatted table of all variables currently bound in the interpreter environment."""
@@ -1098,56 +1401,54 @@ class Interpreter:
         print("  | Variable Identifier  | Data Type  | Current Value        |")
         print("  +----------------------+------------+----------------------+")
         for name, val in self.variables.items():
-            dtype = "integer" if isinstance(val, int) else "float"
+            dtype = self.TYPE_LABELS.get(type(val), "float")
             print(f"  | {name:<20} | {dtype:<10} | {str(val):<20} |")
         print("  +----------------------+------------+----------------------+")
 
-    def evaluate_expr(self, node):
-        """
-        Recursively evaluates an expression AST node and returns its numeric result (`int` or `float`).
-        """
-        if isinstance(node, NumberNode):
-            return node.value
-
-        if isinstance(node, VarNode):
-            if node.name in self.variables:
-                return self.variables[node.name]
-            if node.name in self.BUILT_IN_CONSTANTS:
-                return self.BUILT_IN_CONSTANTS[node.name]
+    def _eval_sqrt(self, arg, node):
+        """Evaluates `sqrt(arg)`, preserving exact `int` types for perfect integer squares."""
+        if arg < 0:
             raise InterpreterError(
-                "undefined_variable",
+                "negative_sqrt",
                 node.line,
                 node.col,
-                var_name=node.name,
+                detail=str(arg),
                 source_line=self._get_line_text(node.line),
-                hint=f"Define '{node.name}' first using: let {node.name} = <value>"
+                hint="Pass a non-negative number (>= 0) to sqrt()."
             )
+        res = math.sqrt(arg)
+        if res.is_integer() and isinstance(arg, int):
+            return int(res)
+        return res
 
-        if isinstance(node, UnaryOpNode):
-            val = self.evaluate_expr(node.expr)
-            if node.op == "sub":
-                return -val
-            if node.op == "add":
-                return +val
+    def _eval_single_arg_function(self, fname, eval_args, node):
+        """Validates arity == 1 and dispatches a single-argument built-in function."""
+        if len(eval_args) != 1:
             raise InterpreterError(
-                f"Unknown unary operator: {node.op}",
+                "argument_error",
                 node.line,
                 node.col,
-                source_line=self._get_line_text(node.line)
+                detail=f"Function '{fname}()' expects exactly 1 argument, but got {len(eval_args)}.",
+                source_line=self._get_line_text(node.line),
+                hint=f"Call '{fname}(x)' with a single numeric expression."
             )
+        return self._single_arg_funcs[fname](eval_args[0], node)
 
-        if isinstance(node, FuncCallNode):
-            return self._evaluate_function(node)
-
-        if isinstance(node, BinOpNode):
-            left_val = self.evaluate_expr(node.left)
-            right_val = self.evaluate_expr(node.right)
-            return self._apply_binary_op(node.op, left_val, right_val, node.line, node.col)
-
-        raise InterpreterError(f"Unknown AST node: {type(node).__name__}", 0, 0)
+    def _eval_variadic_function(self, fname, eval_args, node):
+        """Validates arity >= 2 and dispatches a variadic built-in function (`min` or `max`)."""
+        if len(eval_args) < 2:
+            raise InterpreterError(
+                "argument_error",
+                node.line,
+                node.col,
+                detail=f"Function '{fname}()' requires at least 2 arguments, got {len(eval_args)}.",
+                source_line=self._get_line_text(node.line),
+                hint=f"Call '{fname}(a, b)' with two or more comma-separated arguments."
+            )
+        return self._variadic_funcs[fname](eval_args)
 
     def _evaluate_function(self, node):
-        """Evaluates built-in mathematical functions (`abs`, `sqrt`, `min`, `max`, `round`, `int`, `float`)."""
+        """Dispatches built-in mathematical functions using `_single_arg_funcs` and `_variadic_funcs`."""
         fname = node.func_name
         if fname not in FuncCallNode.SUPPORTED_FUNCTIONS:
             raise InterpreterError(
@@ -1159,56 +1460,95 @@ class Interpreter:
                 hint=f"Use one of the built-in functions: {', '.join(FuncCallNode.SUPPORTED_FUNCTIONS)}."
             )
 
-        eval_args = [self.evaluate_expr(arg) for arg in node.args]
+        eval_args = [arg.evaluate(self) for arg in node.args]
+        if fname in self._single_arg_funcs:
+            return self._eval_single_arg_function(fname, eval_args, node)
+        return self._eval_variadic_function(fname, eval_args, node)
 
-        if fname in ("abs", "sqrt", "round", "int", "float"):
-            if len(eval_args) != 1:
-                raise InterpreterError(
-                    "argument_error",
-                    node.line,
-                    node.col,
-                    detail=f"Function '{fname}()' expects exactly 1 argument, but got {len(eval_args)}.",
-                    source_line=self._get_line_text(node.line),
-                    hint=f"Call '{fname}(x)' with a single numeric expression."
-                )
-            arg = eval_args[0]
-            if fname == "abs":
-                return abs(arg)
-            if fname == "round":
-                return int(round(arg))
-            if fname == "int":
-                return int(arg)
-            if fname == "float":
-                return float(arg)
-            if fname == "sqrt":
-                if arg < 0:
-                    raise InterpreterError(
-                        "negative_sqrt",
-                        node.line,
-                        node.col,
-                        detail=str(arg),
-                        source_line=self._get_line_text(node.line),
-                        hint="Pass a non-negative number (>= 0) to sqrt()."
-                    )
-                res = math.sqrt(arg)
-                return int(res) if res.is_integer() and isinstance(arg, int) else res
+    def _require_non_zero(self, right_val, line, col, hint):
+        """Guard helper that raises `divide_by_zero` when `right_val == 0`."""
+        if right_val == 0:
+            raise InterpreterError(
+                "divide_by_zero",
+                line,
+                col,
+                source_line=self._get_line_text(line),
+                hint=hint
+            )
 
-        if fname in ("min", "max"):
-            if len(eval_args) < 2:
-                raise InterpreterError(
-                    "argument_error",
-                    node.line,
-                    node.col,
-                    detail=f"Function '{fname}()' requires at least 2 arguments, got {len(eval_args)}.",
-                    source_line=self._get_line_text(node.line),
-                    hint=f"Call '{fname}(a, b)' with two or more comma-separated arguments."
-                )
-            return min(eval_args) if fname == "min" else max(eval_args)
+    def _op_true_div(self, left_val, right_val, line, col):
+        """Performs true division (`a / b`) using `operator.truediv`."""
+        self._require_non_zero(
+            right_val,
+            line,
+            col,
+            "Division by zero is undefined. Ensure the divisor expression evaluates to a non-zero number."
+        )
+        return operator.truediv(left_val, right_val)
 
-        raise InterpreterError("type_error", node.line, node.col)
+    def _op_floor_div(self, left_val, right_val, line, col):
+        """Performs integer floor division (`a // b`) using `operator.floordiv`."""
+        self._require_non_zero(
+            right_val,
+            line,
+            col,
+            "Integer division by zero is undefined. Ensure the divisor is non-zero."
+        )
+        res = operator.floordiv(left_val, right_val)
+        if isinstance(left_val, int) and isinstance(right_val, int):
+            return int(res)
+        return res
+
+    def _op_modulo(self, left_val, right_val, line, col):
+        """Performs modulo remainder (`a % b`) using `operator.mod`."""
+        self._require_non_zero(
+            right_val,
+            line,
+            col,
+            "Modulo by zero is undefined. Ensure the right-hand operand of '%' is non-zero."
+        )
+        return operator.mod(left_val, right_val)
+
+    def _op_power(self, left_val, right_val, line, col):
+        """Performs exponentiation (`a ^ b`) using `operator.pow` with overflow and domain guards."""
+        if left_val == 0 and right_val < 0:
+            raise InterpreterError(
+                "divide_by_zero",
+                line,
+                col,
+                source_line=self._get_line_text(line),
+                hint="Zero cannot be raised to a negative power because it implies division by zero."
+            )
+        if abs(right_val) > self.MAX_EXPONENT_MAGNITUDE and abs(left_val) > 1:
+            raise InterpreterError(
+                "overflow_error",
+                line,
+                col,
+                source_line=self._get_line_text(line),
+                hint=f"Keep exponent magnitude <= {self.MAX_EXPONENT_MAGNITUDE} to avoid numeric overflow."
+            )
+        try:
+            res = operator.pow(left_val, right_val)
+        except ZeroDivisionError:
+            raise InterpreterError("divide_by_zero", line, col, source_line=self._get_line_text(line))
+        except OverflowError:
+            raise InterpreterError("overflow_error", line, col, source_line=self._get_line_text(line))
+
+        if isinstance(res, complex):
+            raise InterpreterError(
+                "negative_sqrt",
+                line,
+                col,
+                detail=f"{left_val} ^ {right_val}",
+                source_line=self._get_line_text(line),
+                hint="Fractional exponent of a negative base yields a complex number."
+            )
+        return res
 
     def _apply_binary_op(self, op, left_val, right_val, line, col):
-        """Applies a validated binary arithmetic operator to `left_val` and `right_val`."""
+        """
+        Validates numeric operand types and dispatches `op` via `self._binary_op_dispatch`.
+        """
         if (
             not isinstance(left_val, (int, float))
             or not isinstance(right_val, (int, float))
@@ -1222,92 +1562,10 @@ class Interpreter:
                 source_line=self._get_line_text(line)
             )
 
-        if op == "add":
-            return left_val + right_val
-        if op == "sub":
-            return left_val - right_val
-        if op == "mul":
-            return left_val * right_val
+        if op not in self._binary_op_dispatch:
+            raise InterpreterError(f"Unknown binary operator: {op}", line, col)
 
-        if op == "div":
-            if right_val == 0:
-                raise InterpreterError(
-                    "divide_by_zero",
-                    line,
-                    col,
-                    source_line=self._get_line_text(line),
-                    hint="Division by zero is undefined. Ensure the divisor expression evaluates to a non-zero number."
-                )
-            return left_val / right_val
-
-        if op == "idiv":
-            if right_val == 0:
-                raise InterpreterError(
-                    "divide_by_zero",
-                    line,
-                    col,
-                    source_line=self._get_line_text(line),
-                    hint="Integer division by zero is undefined. Ensure the divisor is non-zero."
-                )
-            res = left_val // right_val
-            return int(res) if isinstance(left_val, int) and isinstance(right_val, int) else res
-
-        if op == "mod":
-            if right_val == 0:
-                raise InterpreterError(
-                    "divide_by_zero",
-                    line,
-                    col,
-                    source_line=self._get_line_text(line),
-                    hint="Modulo by zero is undefined. Ensure the right-hand operand of '%' is non-zero."
-                )
-            return left_val % right_val
-
-        if op == "pow":
-            if left_val == 0 and right_val < 0:
-                raise InterpreterError(
-                    "divide_by_zero",
-                    line,
-                    col,
-                    source_line=self._get_line_text(line),
-                    hint="Zero cannot be raised to a negative power because it implies division by zero."
-                )
-            if abs(right_val) > self.MAX_EXPONENT_MAGNITUDE and abs(left_val) > 1:
-                raise InterpreterError(
-                    "overflow_error",
-                    line,
-                    col,
-                    source_line=self._get_line_text(line),
-                    hint=f"Keep exponent magnitude <= {self.MAX_EXPONENT_MAGNITUDE} to avoid numeric overflow."
-                )
-            try:
-                res = left_val ** right_val
-                if isinstance(res, complex):
-                    raise InterpreterError(
-                        "negative_sqrt",
-                        line,
-                        col,
-                        detail=f"{left_val} ^ {right_val}",
-                        source_line=self._get_line_text(line),
-                        hint="Fractional exponent of a negative base yields a complex number."
-                    )
-                return res
-            except ZeroDivisionError:
-                raise InterpreterError(
-                    "divide_by_zero",
-                    line,
-                    col,
-                    source_line=self._get_line_text(line)
-                )
-            except OverflowError:
-                raise InterpreterError(
-                    "overflow_error",
-                    line,
-                    col,
-                    source_line=self._get_line_text(line)
-                )
-
-        raise InterpreterError(f"Unknown binary operator: {op}", line, col)
+        return self._binary_op_dispatch[op](left_val, right_val, line, col)
 
 
 # ============================================================================
@@ -1316,8 +1574,8 @@ class Interpreter:
 
 def format_ast(node, indent="", is_last=True):
     """
-    Renders an AST node or statement tree as a clean ASCII hierarchy for
-    educational inspection and debugging (`--ast` flag or `ast` REPL command).
+    Renders an AST node or statement tree as a clean ASCII hierarchy by delegating
+    polymorphically to `node.format_tree(indent, is_last)`.
 
     Args:
         node (ASTNode): Root AST node to format.
@@ -1327,58 +1585,14 @@ def format_ast(node, indent="", is_last=True):
     Returns:
         str: Multi-line ASCII tree representation of the AST.
     """
-    branch = "└── " if is_last else "├── "
-    child_indent = indent + ("    " if is_last else "│   ")
-
-    if isinstance(node, NumberNode):
-        dtype = "int" if isinstance(node.value, int) else "float"
-        return f"{indent}{branch}NumberNode({node.value} : {dtype})"
-
-    if isinstance(node, VarNode):
-        return f"{indent}{branch}VarNode('{node.name}')"
-
-    if isinstance(node, ClearNode):
-        return f"{indent}{branch}ClearNode()"
-
-    if isinstance(node, VarsNode):
-        return f"{indent}{branch}VarsNode()"
-
-    if isinstance(node, UnaryOpNode):
-        lines = [f"{indent}{branch}UnaryOpNode({node.op.upper()})"]
-        lines.append(format_ast(node.expr, child_indent, True))
-        return "\n".join(lines)
-
-    if isinstance(node, BinOpNode):
-        sym = BinOpNode.OP_SYMBOLS.get(node.op, node.op)
-        lines = [f"{indent}{branch}BinOpNode({node.op.upper()} '{sym}')"]
-        lines.append(format_ast(node.left, child_indent, False))
-        lines.append(format_ast(node.right, child_indent, True))
-        return "\n".join(lines)
-
-    if isinstance(node, FuncCallNode):
-        lines = [f"{indent}{branch}FuncCallNode('{node.func_name}')"]
-        for i, arg in enumerate(node.args):
-            lines.append(format_ast(arg, child_indent, i == len(node.args) - 1))
-        return "\n".join(lines)
-
-    if isinstance(node, AssignNode):
-        lines = [f"{indent}{branch}AssignNode('{node.name}' {node.op})"]
-        lines.append(format_ast(node.expr, child_indent, True))
-        return "\n".join(lines)
-
-    if isinstance(node, PrintNode):
-        lines = [f"{indent}{branch}PrintNode"]
-        lines.append(format_ast(node.expr, child_indent, True))
-        return "\n".join(lines)
-
-    return f"{indent}{branch}{type(node).__name__}"
+    return node.format_tree(indent=indent, is_last=is_last)
 
 
 def format_error(error, config=None):
     """
     Formats any `PlangError` into a clear, readable diagnostic report complete
     with line/column coordinates, source line snippet, visual caret (`^`) pointer,
-    and corrective hint.
+    and corrective hint using polymorphic `error.format_header()`.
 
     Args:
         error (Exception): The exception caught during lexing, parsing, or evaluation.
@@ -1393,67 +1607,10 @@ def format_error(error, config=None):
     if not isinstance(error, PlangError):
         return f"[System Error]: {error}"
 
-    line = error.line if error.line is not None else 1
-    col = error.column if error.column is not None else 1
+    line = error.line or 1
+    col = error.column or 1
+    output_lines = [error.format_header(errors_config, line, col)]
 
-    if isinstance(error, LexerError):
-        template = errors_config.get(
-            "lexer_error",
-            "[Lexical Error] Line {line}, Col {col}: {message}"
-        )
-        header = template.format(char=error.char, message=error.message, line=line, col=col)
-
-    elif isinstance(error, ParseError):
-        template = errors_config.get(
-            "parse_error",
-            "[Syntax Error] Line {line}, Col {col}: {message}"
-        )
-        header = template.format(message=error.message, line=line, col=col)
-
-    elif isinstance(error, InterpreterError):
-        err_key = error.message
-        if err_key == "divide_by_zero":
-            template = errors_config.get(
-                "divide_by_zero",
-                "[Runtime Error] Line {line}, Col {col}: Division or modulo by zero is undefined."
-            )
-            header = template.format(line=line, col=col)
-        elif err_key == "undefined_variable":
-            template = errors_config.get(
-                "undefined_variable",
-                "[Runtime Error] Line {line}, Col {col}: Variable '{name}' is not defined before use."
-            )
-            header = template.format(name=error.var_name, line=line, col=col)
-        elif err_key == "negative_sqrt":
-            template = errors_config.get(
-                "negative_sqrt",
-                "[Runtime Error] Line {line}, Col {col}: Cannot compute real square root of negative number ({value})."
-            )
-            header = template.format(value=error.detail or "negative", line=line, col=col)
-        elif err_key == "overflow_error":
-            template = errors_config.get(
-                "overflow_error",
-                "[Runtime Error] Line {line}, Col {col}: Numeric overflow — expression result exceeds safe computation limits."
-            )
-            header = template.format(line=line, col=col)
-        elif err_key == "argument_error":
-            template = errors_config.get(
-                "argument_error",
-                "[Runtime Error] Line {line}, Col {col}: {message}"
-            )
-            header = template.format(message=error.detail or error.message, line=line, col=col)
-        else:
-            template = errors_config.get(
-                "type_error",
-                "[Runtime Error] Line {line}, Col {col}: Invalid operand types for arithmetic operation."
-            )
-            header = template.format(line=line, col=col)
-    else:
-        header = f"[{error.CATEGORY}] Line {line}, Col {col}: {error.message}"
-
-    output_lines = [header]
-
-    # Attach visual source line and caret pointer (`^`) if source line is available
     if error.source_line is not None and error.source_line.strip() != "":
         line_label = f"  {line} | "
         caret_offset = max(0, col - 1)

@@ -15,6 +15,8 @@ Libraries Utilized:
     - `pytest`: Automated test runner and assertion framework.
 """
 
+import ast
+import os
 import pytest
 from lang import (
     Interpreter,
@@ -44,7 +46,7 @@ def run_code(code, config=None, capsys=None):
     for stmt in statements:
         last_val = interpreter.evaluate_statement(stmt)
 
-    captured = capsys.readouterr().out if capsys else ""
+    captured = (capsys and capsys.readouterr().out) or ""
     return last_val, captured, interpreter
 
 
@@ -250,3 +252,33 @@ def test_ast_formatter():
     assert "AssignNode('x' =)" in tree_str
     assert "BinOpNode(ADD '+')" in tree_str
     assert "BinOpNode(MUL '*')" in tree_str
+
+
+def test_no_if_else_or_nested_ifs():
+    """
+    Verifies the architectural constraint: `lang.py` and `main.py` contain
+    ZERO `if-else` / `elif` statements (`ast.If.orelse`), ZERO ternary `if-else`
+    expressions (`ast.IfExp`), and ZERO nested `if` statements.
+    """
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    for filename in ("lang.py", "main.py"):
+        filepath = os.path.join(base_dir, filename)
+        with open(filepath, "r", encoding="utf-8") as f:
+            tree = ast.parse(f.read(), filename=filename)
+
+        for node in ast.walk(tree):
+            assert not isinstance(node, ast.IfExp), (
+                f"Found ternary if-else expression in {filename} at line {node.lineno}"
+            )
+            if isinstance(node, ast.If):
+                assert len(node.orelse) == 0, (
+                    f"Found if-else or elif branch in {filename} at line {node.lineno}"
+                )
+                nested_ifs = [
+                    child for child in ast.walk(node)
+                    if child is not node and isinstance(child, ast.If)
+                ]
+                assert len(nested_ifs) == 0, (
+                    f"Found nested if statement in {filename} at line {node.lineno}"
+                )
+

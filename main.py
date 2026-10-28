@@ -8,6 +8,9 @@ Module Overview:
     Read-Eval-Print Loop (REPL) for PLang. Designed with structured user prompts,
     clean visual formatting, symbol table inspection, and AST/Token visualization.
 
+    Architected using flat guard clauses and table-driven helpers with zero
+    `if-else` chains and zero nested `if` blocks.
+
 Libraries Utilized:
     - `os`, `sys` (Python Standard Library): File path resolution and exit status codes.
     - `json` (Python Standard Library): Language configuration loading (`config.json`).
@@ -40,6 +43,7 @@ class CLIRunner:
     Class Variables:
         PROMPT_SYMBOL (str): Interactive prompt prefix displayed before user input ('plang> ').
         REPL_COMMANDS (tuple[str, ...]): Built-in meta-commands recognized by the REPL session.
+        DISPLAY_TOKEN_VALUES (dict[str, str]): Maps special token types (like 'NEWLINE') to display strings.
 
     Instance Attributes:
         config (dict): Loaded PLang configuration dictionary (keywords, prefixes, error templates).
@@ -50,8 +54,11 @@ class CLIRunner:
 
     PROMPT_SYMBOL = "plang> "
     REPL_COMMANDS = ("help", "vars", "clear", "ast", "tokens", "exit", "quit")
+    DISPLAY_TOKEN_VALUES = {"NEWLINE": "\\n"}
 
     def __init__(self, config=None, show_tokens=False, show_ast=False):
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         self.config = config or load_config()
         self.show_tokens = show_tokens
         self.show_ast = show_ast
@@ -96,7 +103,7 @@ class CLIRunner:
         print("  | #  | Token Type   | Lexeme Value         | Line    | Column  |")
         print("  +----+--------------+----------------------+---------+---------+")
         for idx, tok in enumerate(tokens, start=1):
-            val_repr = "\\n" if tok.type == "NEWLINE" else tok.value
+            val_repr = self.DISPLAY_TOKEN_VALUES.get(tok.type, tok.value)
             print(f"  | {idx:<2} | {tok.type:<12} | {val_repr:<20} | {tok.line:<7} | {tok.column:<7} |")
         print("  +----+--------------+----------------------+---------+---------+")
 
@@ -109,6 +116,68 @@ class CLIRunner:
             print(format_ast(stmt, indent="  ", is_last=is_last))
         print()
 
+    def _extract_repl_mode(self, raw_line):
+        """
+        Extracts `(mode, code_to_run)` for REPL inspection commands (`ast ...`, `tokens ...`).
+        """
+        stripped = raw_line.strip()
+        lower = stripped.lower()
+        if lower.startswith("ast ") and len(stripped) > 4:
+            return "ast", stripped[4:]
+        if lower.startswith("tokens ") and len(stripped) > 7:
+            return "tokens", stripped[7:]
+        return "eval", raw_line
+
+    def _execute_repl_statement(self, raw_line):
+        """Tokenizes, parses, and evaluates a single REPL input line."""
+        mode, code_to_run = self._extract_repl_mode(raw_line)
+        self.interpreter.set_source_code(code_to_run)
+        tokens = tokenize(code_to_run, self.config)
+
+        if len(tokens) <= 1:
+            return
+
+        if mode == "tokens" or self.show_tokens:
+            self._print_tokens_table(tokens)
+        if mode == "tokens":
+            return
+
+        parser = Parser(tokens, self.config, source_code=code_to_run)
+        stmt = parser.parse_statement()
+
+        if parser.current_token().type not in ("EOF", "NEWLINE"):
+            parser._raise_trailing_token_error(parser.current_token())
+
+        if mode == "ast" or self.show_ast:
+            self._print_ast_tree([stmt])
+        if mode == "ast":
+            return
+
+        result = self.interpreter.evaluate_statement(stmt)
+        if result is not None:
+            prefix = self.config.get("print_prefix", "[OUT] => ")
+            print(f"  {prefix}{result}")
+
+    def _process_repl_input(self, line):
+        """
+        Processes a single raw line entered in the REPL.
+        Returns `False` when the user requests to exit, or `True` to continue.
+        """
+        stripped = line.strip()
+        if not stripped:
+            return True
+
+        if stripped.lower() in ("exit", "quit"):
+            print("  Session terminated. Goodbye!")
+            return False
+
+        if stripped.lower() == "help":
+            self.print_help()
+            return True
+
+        self._execute_repl_statement(line)
+        return True
+
     def run_repl(self):
         """Starts the interactive Read-Eval-Print Loop (REPL) session."""
         banner = self.config.get(
@@ -120,61 +189,11 @@ class CLIRunner:
         print(banner)
         print("  Type 'help' for syntax reference, 'vars' for variables, or 'exit' to quit.\n")
 
-        while True:
+        running = True
+        while running:
             try:
                 line = input(self.PROMPT_SYMBOL)
-                stripped = line.strip()
-
-                if not stripped:
-                    continue
-
-                if stripped.lower() in ("exit", "quit"):
-                    print("  Session terminated. Goodbye!")
-                    break
-
-                if stripped.lower() == "help":
-                    self.print_help()
-                    continue
-
-                # Handle REPL inspection prefixes: `ast <code...>` or `tokens <code...>`
-                inspect_ast_only = False
-                inspect_tokens_only = False
-                code_to_run = line
-
-                if stripped.lower().startswith("ast ") and len(stripped) > 4:
-                    inspect_ast_only = True
-                    code_to_run = stripped[4:]
-                elif stripped.lower().startswith("tokens ") and len(stripped) > 7:
-                    inspect_tokens_only = True
-                    code_to_run = stripped[7:]
-
-                self.interpreter.set_source_code(code_to_run)
-                tokens = tokenize(code_to_run, self.config)
-
-                if len(tokens) <= 1:
-                    continue
-
-                if inspect_tokens_only or self.show_tokens:
-                    self._print_tokens_table(tokens)
-                    if inspect_tokens_only:
-                        continue
-
-                parser = Parser(tokens, self.config, source_code=code_to_run)
-                stmt = parser.parse_statement()
-
-                if parser.current_token().type not in ("EOF", "NEWLINE"):
-                    parser._raise_trailing_token_error(parser.current_token())
-
-                if inspect_ast_only or self.show_ast:
-                    self._print_ast_tree([stmt])
-                    if inspect_ast_only:
-                        continue
-
-                result = self.interpreter.evaluate_statement(stmt)
-                if result is not None:
-                    prefix = self.config.get("print_prefix", "[OUT] => ")
-                    print(f"  {prefix}{result}")
-
+                running = self._process_repl_input(line)
             except (KeyboardInterrupt, EOFError):
                 print("\n  Session terminated. Goodbye!")
                 break
@@ -223,6 +242,12 @@ class CLIRunner:
         except Exception as exc:
             print(f"[System Error]: {exc}")
             sys.exit(1)
+
+    def start(self, script_path=None):
+        """Dispatches execution to `run_file` when a script is provided, or `run_repl`."""
+        if script_path:
+            return self.run_file(script_path)
+        return self.run_repl()
 
 
 def load_config(config_path=None):
@@ -288,11 +313,7 @@ def main():
     args = arg_parser.parse_args()
     config = load_config(args.config)
     runner = CLIRunner(config=config, show_tokens=args.tokens, show_ast=args.ast)
-
-    if args.script:
-        runner.run_file(args.script)
-    else:
-        runner.run_repl()
+    runner.start(args.script)
 
 
 if __name__ == "__main__":
