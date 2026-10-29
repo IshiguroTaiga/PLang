@@ -8,6 +8,8 @@
 
 It is engineered from the ground up TO MEET the three foundational Programming Language Evaluation Criteria: **Readability**, **Writability**, and **Reliability**.
 
+> 🌱 **New to programming or preparing for your group presentation?** Read **[`BEGINNERS_GUIDE.md`](BEGINNERS_GUIDE.md)** for a plain-English, zero-experience walkthrough (with kitchen analogies, copy-paste terminal commands, and a 4-speaker presentation script)!
+
 ---
 
 ## 📌 Table of Contents
@@ -17,7 +19,7 @@ It is engineered from the ground up TO MEET the three foundational Programming L
 4. [Language Design: Readability, Writability & Reliability](#-4-language-design-readability-writability--reliability)
 5. [PLang v2.0 Syntax, Operators & Built-in Functions](#-5-plang-v20-syntax-operators--built-in-functions)
 6. [Formal EBNF Grammar Specification](#-6-formal-ebnf-grammar-specification)
-7. [Installation & How to Use](#-7-installation--how-to-use)
+7. [Installation & How to Use](#7-installation--how-to-use)
 8. [Sample Programs & Expected Outputs](#-8-sample-programs--expected-outputs)
 9. [Error Handling & Visual Caret Diagnostics](#-9-error-handling--visual-caret-diagnostics)
 10. [Project Directory Structure](#-10-project-directory-structure)
@@ -195,9 +197,12 @@ cd PLang
 
 2. **Run a `.plang` Script File**:
    ```bash
+   python main.py examples/step_by_step_basics.plang
    python main.py examples/integer_arithmetic.plang
    python main.py examples/hybrid_syntax.plang
    python main.py examples/advanced_features.plang
+   python main.py examples/real_world_formulas.plang
+   python main.py examples/error_handling_demo.plang
    ```
 
 3. **Inspect Tokens and AST When Running a Script**:
@@ -276,6 +281,39 @@ print capacity
 [OUT] => 200
 ```
 
+### Example 3: Real-World Everyday Formulas (`examples/real_world_formulas.plang`)
+```python
+# Student Quiz Average (Whole Integer Division)
+let quiz1 = 88
+let quiz2 = 92
+let quiz3 = 96
+let total_points = quiz1 add quiz2 add quiz3
+let average_score = total_points div 3
+print average_score
+
+# ATM Cash Change Splitter (1,370 pesos -> 500s, 100s, and remaining coins)
+let cash_amount = 1370
+let bills_500 = cash_amount // 500
+let after_500 = cash_amount % 500
+let bills_100 = after_500 // 100
+let remaining_change = after_500 % 100
+print bills_500
+print bills_100
+print remaining_change
+
+# Right-Triangle Hypotenuse: sqrt(5^2 + 12^2) = 13
+let side_c = sqrt(5 ^ 2 + 12 ^ 2)
+print side_c
+```
+**Output:**
+```text
+[OUT] => 92
+[OUT] => 2
+[OUT] => 3
+[OUT] => 70
+[OUT] => 13
+```
+
 ---
 
 ## 🛡️ 9. Error Handling & Visual Caret Diagnostics
@@ -310,16 +348,21 @@ PLang never crashes with raw stack traces on user mistakes. Instead, it pinpoint
 
 ```text
 PLang/
-├── lang.py                          # Core Lexer, Recursive-Descent Parser, AST Nodes, Interpreter & Error Formatter
+├── lang.py                          # Core Lexer, Recursive-Descent Parser, Polymorphic AST Nodes & Interpreter
 ├── main.py                          # CLI Driver & Interactive REPL with AST/Token/Symbol Table inspection
 ├── config.json                      # Unified PLang v2.0 language configuration
-├── test_lang.py                     # Automated pytest test suite (7 test suites)
-├── README.md                        # Comprehensive project & language documentation
-├── examples/                        # Sample .plang scripts
+├── test_lang.py                     # Automated pytest test suite (8 test suites including zero if-else check)
+├── README.md                        # Comprehensive technical & language documentation
+├── BEGINNERS_GUIDE.md               # Plain-English beginner's guide, cheat sheet & group presentation script
+├── examples/                        # Sample .plang scripts (6 ready-to-run examples)
+│   ├── step_by_step_basics.plang    # Baby-step walkthrough of variables, operators & symbol table
 │   ├── integer_arithmetic.plang     # Integer arithmetic, floor division, modulo & precedence
 │   ├── hybrid_syntax.plang          # Hybrid English operator keywords (add, sub, mul, div, mod, pow)
-│   └── advanced_features.plang      # Compound assignments, built-in math functions & symbol table
+│   ├── advanced_features.plang      # Compound assignments, built-in math functions & symbol table
+│   ├── real_world_formulas.plang    # Everyday formulas: Grade average, ATM bill splitter & geometry
+│   └── error_handling_demo.plang    # Interactive demo of Lexical, Syntax & Runtime error diagnostics
 └── web/                             # Interactive React + Vite Web Studio IDE
+    ├── README.md                    # Web Studio IDE setup & feature guide
     ├── package.json
     └── src/
         ├── App.jsx                  # Main Web IDE layout & execution controller

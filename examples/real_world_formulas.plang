@@ -1,0 +1,35 @@
+# ======================================================================
+# PLang Example 4: Real-World Everyday Formulas
+# Demonstrates Grades, Currency Bill Splitter (// & %), and Geometry
+# Run with: python main.py examples/real_world_formulas.plang
+# ======================================================================
+
+# --- Scenario A: Student Quiz Score & Bonus Calculator ---
+let quiz1 = 88
+let quiz2 = 92
+let quiz3 = 96
+let total_points = quiz1 add quiz2 add quiz3
+let average_score = total_points div 3
+print average_score
+
+# --- Scenario B: ATM / Cash Change Splitter (Whole Integer Math) ---
+# Split 1,370 pesos into 500-peso bills, 100-peso bills, and remaining coins
+let cash_amount = 1370
+let bills_500 = cash_amount // 500
+let after_500 = cash_amount % 500
+let bills_100 = after_500 // 100
+let remaining_change = after_500 % 100
+
+print bills_500
+print bills_100
+print remaining_change
+
+# --- Scenario C: Right-Triangle Hypotenuse (Pythagorean Theorem) ---
+# c = sqrt(a^2 + b^2) for a 5-12-13 right triangle
+let side_a = 5
+let side_b = 12
+let side_c = sqrt(side_a ^ 2 + side_b ^ 2)
+print side_c
+
+# Inspect all calculated variables
+vars

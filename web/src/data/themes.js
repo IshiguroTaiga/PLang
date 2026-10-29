@@ -134,6 +134,59 @@ print 100 / (10 - 10)
 
 # Case B: Incorrect format / missing operand (Syntax Error)
 # let broken = 25 + * 5`
+  },
+
+  real_world_formulas: {
+    id: "real_world_formulas",
+    name: "5. Real-World Everyday Formulas",
+    badge: "Practical Demo",
+    description:
+      "Calculates a student quiz average, splits 1,370 pesos into 500/100 bills and coins using // and %, and computes a right triangle hypotenuse.",
+    sampleCode: `# 1. Student Quiz Average
+let quiz1 = 88
+let quiz2 = 92
+let quiz3 = 96
+let average_score = (quiz1 add quiz2 add quiz3) div 3
+print average_score
+
+# 2. ATM Cash Bill Splitter (1,370 pesos)
+let cash = 1370
+let bills_500 = cash // 500
+let after_500 = cash % 500
+let bills_100 = after_500 // 100
+let coins = after_500 % 100
+print bills_500
+print bills_100
+print coins
+
+# 3. Right-Triangle Hypotenuse (5-12-13 triangle)
+let side_c = sqrt(5 ^ 2 + 12 ^ 2)
+print side_c
+vars`
+  },
+
+  step_by_step_basics: {
+    id: "step_by_step_basics",
+    name: "6. Beginner Step-by-Step Basics",
+    badge: "Beginner Guide",
+    description:
+      "A gentle walkthrough for complete beginners showing variables, addition, English operator words, integer division, and the symbol table.",
+    sampleCode: `# Step 1: Save numbers into named variables
+let apples = 12
+let oranges = 8
+
+# Step 2: Add variables together and print
+let total_fruit = apples + oranges
+print total_fruit
+
+# Step 3: Multiply using English keyword 'mul'
+let crates = total_fruit mul 3
+print crates
+
+# Step 4: Pack 60 fruits into bags of 14 (quotient & remainder)
+print crates div 14
+print crates mod 14
+vars`
   }
 };
 

@@ -1,0 +1,26 @@
+# ======================================================================
+# PLang Example 0: Step-by-Step Basics for Complete Beginners
+# Run with: python main.py examples/step_by_step_basics.plang
+# ======================================================================
+
+# Step 1: Saving numbers into named variables using 'let'
+let apples = 12
+let oranges = 8
+
+# Step 2: Adding variables together and printing the answer
+let total_fruit = apples + oranges
+print total_fruit
+
+# Step 3: Using English word operators ('add', 'mul', 'sub')
+let crates = total_fruit mul 3
+print crates
+
+# Step 4: Whole-number division ('//' or 'div') and Remainder ('%' or 'mod')
+# Suppose we pack 60 fruits into bags that hold 14 fruits each:
+let full_bags = crates div 14
+let leftover_fruit = crates mod 14
+print full_bags
+print leftover_fruit
+
+# Step 5: View all saved variables in the Symbol Table notebook
+vars
