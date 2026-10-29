@@ -39,14 +39,14 @@ In Computer Science (and in Robert W. Sebesta’s *Concepts of Programming Langu
 * **Python is NOT our language.** Python is merely the **Host Implementation Language** (the factory tool) we used to construct the **PLang Interpreter**.
 * **PLang (`.plang`) is our Target Language**—it has its own file extension (`.plang`), its own vocabulary, its own grammar rules, its own memory space, and its own error system.
 
-> 🪄 **The Herta’s Explanation (Genius Society #83):**
-> *"Calling PLang 'just Python' because its interpreter was written in Python is like calling my Herta puppets 'just wood and joints'—it completely misses the genius soul running inside! Kuru kuru~ Python is merely the vessel. Or in terms your heartbroken brain can understand: Python is just the tulay/bridge na ginamit niya para makilala yung bago niya—the bridge isn't the relationship, kasangkapan lang siya!"*
+> 🪄
+> *"Calling PLang 'just Python' because its interpreter was written in Python is like calling the Herta's puppets 'just wood and joints'—it completely misses the soul running inside! Python is merely the vessel. Or in terms your broken hearted brain can understand: Python is just the tulay/bridge na ginamit niya para makilala yung bago niya—the bridge isn't the relationship, kasangkapan lang siya!"* SORRY THIS SHIT GOTTA BE THE CAFFEINE KICKING IN
 
 ---
 
 ## 🏛️ 2. 6 Formal Justifications: Why PLang Is a True Programming Language
 
-In Programming Language Theory (CMPSC 132), a software system qualifies as its own programming language when it possesses **six formal components**. PLang v2.0 implements all six from scratch:
+In Programming Language Theory, a software system qualifies as its own programming language when it possesses **six formal components**. PLang v2.0 implements all six from scratch:
 
 ### Justification 1: Independent Lexical Specification (Its Own Vocabulary)
 A programming language must define its own valid **lexemes** and **tokens**.
@@ -88,7 +88,7 @@ A real programming language manages its own **memory state (Symbol Table)** sepa
 * Instead, [`Interpreter.variables`](lang.py#L1149-L1155) maintains an isolated dictionary symbol table mapping PLang identifiers (`score`, `ans`) and read-only mathematical constants (`PI`, `E`) to their runtime values and types.
 * Commands like `vars` and `clear` inspect and reset PLang’s symbol table at runtime.
 
-> 💔 **Symbol Table Hugot:** *"Sa PLang, pag nag-run ka ng `vars`, makikita mo nang buong tapat kung sino-sino ang naka-save sa `Symbol Table` at kung anong tunay nilang `Data Type` (`integer` o `float`). Walang tinatago! Hindi katulad nung nagsabi sa'yo ng **'you deserve someone better, di pa ako ready'**—yun pala pag-check mo ng Symbol Table niya, may naka-bind nang iba tapos ang sabi sa bago: **'I'll treat you better.'** Buti pa si PLang, pag nag-error ng `undefined_variable`, diretso agad: walang label, kaya wag kang mag-assume!"*
+> 💔*"Sa PLang, pag nag-run ka ng `vars`, makikita mo nang buong tapat kung sino-sino ang naka-save sa `Symbol Table` at kung anong tunay nilang `Data Type` (`integer` o `float`). Walang tinatago! Hindi katulad nung nagsabi sa'yo ng **'you deserve someone better'**—yun pala pag-check mo ng Symbol Table niya, may naka-bind nang iba tapos ang sabi sa bago: **'I'll treat you better.'** Buti pa si PLang, pag nag-error ng `undefined_variable`, diretso agad: walang label, kaya wag kang mag-assume!"* BERTO GAMIN BASOL MO ETOY
 
 ### Justification 6: Host-Language Independence (Dual Implementation Proof!)
 The ultimate proof that a language is its own language is that **the same language specification can be implemented in multiple host languages**.
@@ -182,3 +182,5 @@ Requirement II.4 requires the language to follow the **Programming Language Eval
 
 ### Q4: *"How did you avoid `if-else` and nested `if` statements across the entire interpreter?"*
 > **Answer:** *"We combined **Polymorphism** on our `ASTNode` and `PlangError` classes (where each node class defines its own `.evaluate()`, `.execute()`, and `.format_tree()` method) with **Dictionary Dispatch Tables** for tokens, statements, operators, and functions, plus **Flat Guard Clauses** for error checking. We also wrote an automated unit test in `test_lang.py` that inspects the Python AST of `lang.py` and `main.py` to guarantee zero `if-else` and zero nested `if`s."*
+
+### GOODLUCK TO WHOEVER IS THE SACRIFICIAL LAMBBB THANK U LABYU
