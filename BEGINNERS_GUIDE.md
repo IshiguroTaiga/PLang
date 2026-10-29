@@ -3,6 +3,8 @@
 
 Welcome! If you have **zero background in programming or compilers**, or if you want a simple, plain-English guide to understand, run, and present **PLang v2.0** for **CMPSC 132: Programming Languages**, this guide is made for you.
 
+> 🧠 **Want the deep defense guide on "How and Why is PLang its own programming language?"** Check out **[`HOW.md`](HOW.md)** right after reading this guide!
+
 ---
 
 ## 📖 Table of Contents
