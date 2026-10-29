@@ -8,7 +8,7 @@
 
 It is engineered from the ground up TO MEET the three foundational Programming Language Evaluation Criteria: **Readability**, **Writability**, and **Reliability**.
 
-> 🌱 **New to programming or preparing for your group presentation?**
+> 🌱 **IMPORTAMT**
 > * Read **[`BEGINNERS_GUIDE.md`](BEGINNERS_GUIDE.md)** for a plain-English, zero-experience walkthrough (with kitchen analogies, copy-paste terminal commands, and a 4-speaker presentation script).
 > * Read **[`HOW.md`](HOW.md)** for the complete academic justification & oral defense guide explaining **how and why PLang is its own programming language** (Host vs. Target language, 6 formal CS justifications, side-by-side Python proof, and Q&A defense answers).
 
