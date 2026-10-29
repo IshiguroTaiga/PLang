@@ -12,7 +12,7 @@ This directory contains the browser-based **React 19 + Vite + TailwindCSS** Inte
 * **Symbol Table State Monitor**: View all active variables, their data types (`int` / `float`), and values in real time.
 * **Language Specification Handbook & Architecture Evaluation**: Built-in documentation covering PLang's EBNF grammar, Sebesta's evaluation criteria (*Readability*, *Writability*, *Reliability*), and the **Polymorphic AST + Dictionary Dispatch Table (Zero `if-else` / Zero Nested `if`)** architecture.
 
-> 🪄 **The Herta’s Seal of Approval (Genius Society #83):** *"A terminal REPL is fine for regular researchers, I suppose, but an interactive Web Studio IDE that visualizes the Lexical Token Stream, Abstract Syntax Tree, and Symbol Table in real time? Now that looks almost like a terminal in Herta Space Station. Kuru kuru~ At least dito sa State Inspector, kitang-kita mo agad pag napalitan yung value ng variable—hindi yung huli ka na sa balita na napalitan ka na pala niya after niyang sabihing 'you deserve someone better'!"*
+> 🪄 *"A terminal REPL is fine for regular researchers, I suppose, but an interactive Web Studio IDE that visualizes the Lexical Token Stream, Abstract Syntax Tree, and Symbol Table in real time? Now that looks almost like a terminal. At least dito sa State Inspector, kitang-kita mo agad pag napalitan yung value ng variable—hindi yung huli ka na sa balita na napalitan ka na pala niya after niyang sabihing 'you deserve someone better'!"*
 
 ---
 
