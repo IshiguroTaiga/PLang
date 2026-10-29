@@ -1,9 +1,9 @@
 # 🌱 PLang v2.0: The Complete Beginner’s & Presentation Guide
 *(No Programming Knowledge Required!)*
 
-Welcome! If you have **zero background in programming or compilers**, or if you want a simple, plain-English guide to understand, run, and present **PLang v2.0** for **CMPSC 132: Programming Languages**, this guide is made for you.
+WIf you want a simple, plain-English guide to understand, run, and present **PLang v2.0**, this guide is made for you.
 
-> 🧠 **Want the deep defense guide on "How and Why is PLang its own programming language?"** Check out **[`HOW.md`](HOW.md)** right after reading this guide!
+> 🧠 **"How and Why is PLang its own programming language?"** Check out **[`HOW.md`](HOW.md)** right after reading this guide!
 
 ---
 
@@ -83,8 +83,8 @@ You type a line in the terminal (`plang> `) or load a `.plang` file from the `ex
   3. Writes `score = 20` inside its Notebook (`variables`).
 * **Catches Math Impossibilities ("Runtime Errors")**: What if someone writes `100 / (5 - 5)`? The spelling and grammar are fine, so Stations 2 and 3 pass! But when Station 4 calculates `5 - 5 = 0`, it realizes **you cannot divide by zero**, stops safely, and prints a helpful hint.
 
-> 🪄 **How The Herta (Genius Society #83) Would Explain the 4 Stations:**
-> *"Listen up, trailblazer—I'm only explaining this once before I go back to the Simulated Universe:*
+> 🪄
+> *"Listen up, I'm only explaining this once before I go back to in my own lil Universe:*
 > * *Station 2 (`Tokenizer`) is me filtering out low-IQ nonsense (`10 @ 5`) before it wastes my time.*
 > * *Station 3 (`Parser`) is priorities—Multiplication (`*`) and Exponents (`^`) come first before Addition (`+`), hindi katulad mo na ginawa mo siyang priority habang ginawa ka lang niyang option.*
 > * *Station 4 (`Interpreter`) is the Symbol Table where variables get reassigned (`x = 10` tapos biglang `x = 99`)—parang nung sinabi niya sa'yo **'you deserve someone better'**, tapos makikita mo sa myday niya may kasama nang iba saying **'I'll treat you better.'** At least sa PLang, pag nag-type ka ng `clear`, burado agad lahat ng alaala!"*
@@ -127,13 +127,13 @@ if right_val == 0:
 ```
 Because it stops immediately, we **never** need an `else` block and we **never** put an `if` inside another `if`!
 
-> 💔 **Pinoy Hugot Note on Guard Clauses:** *"Ang **Guard Clause**, pag nakita niyang `0` yung effort at value mo sa kanya (`if right_val == 0:`), **bounce na agad (`raise`)**! Hindi yung maglalagay ka pa ng 10 layers ng nested `if` (`if magbabago pa siya... if mahal niya pa ako... else maghihintay pa rin ako`). Learn from PLang: pag red flag sa unang check pa lang, exit agad!"*
+> *"Ang **Guard Clause**, pag nakita niyang `0` yung effort at value mo sa kanya (`if right_val == 0:`), **bounce na agad (`raise`)**! Hindi yung maglalagay ka pa ng 10 layers ng nested `if`. Learn from PLang: pag red flag sa unang check pa lang, exit agad!"*
 
 ---
 
-## 🏆 4. Why Does Our Language Get High Grades? (The 3 Big Words)
+## 🏆 4. Does this meet the 3 evaluation criterias?
 
-In CMPSC 132, programming languages are graded on **Robert W. Sebesta’s 3 Evaluation Criteria**:
+In CMPSC 132, programming languages are graded on 3 Evaluation Criteria**:
 
 1. **Readability (How easy is it to read and understand?)**
    * You can write standard math (`10 + 20 // 3`) **OR** plain English words (`10 add 20 div 3`).
@@ -153,7 +153,7 @@ In CMPSC 132, programming languages are graded on **Robert W. Sebesta’s 3 Eval
 
 ## 🚀 5. Step-by-Step: How to Use & Run PLang (Copy-Paste Guide)
 
-Open **PowerShell** or **Command Prompt** inside the `plang` project folder (`C:\Users\TUF\OneDrive\Desktop\DOST Replica\plang`).
+Open **PowerShell** or **Command Prompt** inside the `plang` project folder in my case it is (`C:\Users\TUF\OneDrive\Desktop\DOST Replica\plang`).
 
 ### Way 1: Use the Interactive Calculator Prompt (REPL)
 Type this command and press **Enter**:
@@ -281,3 +281,5 @@ Then Ctrl+Click the `http://localhost:5173` link shown in the terminal!
 2. Run `python main.py`, type `10 + * 5` and `10 / 0` to show how errors are caught cleanly with `^` pointers without crashing.
 3. Run `python -m pytest test_lang.py -v` to show all 8 test suites passing.
 4. Show the **Web Studio IDE** (`http://localhost:5173`) to demonstrate the visual AST tree, Token table, and Handbook.
+
+### BUT SINCE MESA LA AGPRESENT GOODLUCK TO WHOEVER IT IS TWIN
