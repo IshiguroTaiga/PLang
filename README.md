@@ -84,7 +84,7 @@ Instead of relying on long `if-elif-else` chains or nested `if` blocks, **PLang 
 2. **Dictionary Dispatch Tables + Python `operator` Library**: Token classification (`TOKEN_HANDLER_DISPATCH`), statement parsing (`_statement_dispatch`), primary expression parsing (`_primary_dispatch`), unary/binary arithmetic (`_binary_op_dispatch` using `operator.add`, `operator.sub`, `operator.mul`, `operator.truediv`, `operator.floordiv`, `operator.mod`, `operator.pow`), and built-in math functions (`_single_arg_funcs`, `_variadic_funcs`) use O(1) dictionary lookups.
 3. **Flat Guard Clauses**: Every validation check is a single, un-nested guard clause that immediately `return`s or `raise`s.
 
-> 🪄 **The Herta’s Commentary (Genius Society #83):** *"Wait, you mortals still write nested `if-else` chains? How primitive. Kuru kuru~ In my Simulated Universe, we use **Polymorphism** and **Dictionary Dispatch Tables**. Because unlike your ex who kept stringing you along with endless 'what ifs' (`if tayo pa... else friends na lang muna...`) habang may naka-assign na palang iba sa Symbol Table niya, PLang doesn't waste time on `if-else`. One O(1) lookup, tapos agad ang usapan."*
+> 🪄 *"Wait, you mortals still write nested `if-else` chains? How primitive. Just use **Polymorphism** and **Dictionary Dispatch Tables**. Because unlike your ex who kept stringing you along with endless 'what ifs' habang may naka-assign na palang iba sa Symbol Table niya, PLang doesn't waste time on `if-else`. One O(1) lookup, tapos agad ang usapan."*
 
 ---
 
@@ -96,7 +96,7 @@ Instead of relying on long `if-elif-else` chains or nested `if` blocks, **PLang 
 | **2. Writability** | • **Zero Boilerplate**: Write calculations directly without wrapper classes or `main()` functions.<br>• **Compound Assignments**: Supports `+=`, `-=`, `*=`, and `/=` for concise state updates.<br>• **Built-in Math Functions**: Direct access to `abs(x)`, `sqrt(x)`, `min(a, b, ...)`, `max(a, b, ...)`, `round(x)`, `int(x)`, and `float(x)`.<br>• **Automatic `ans` Binding**: Every evaluated expression updates `ans` for quick follow-up calculations in the REPL. |
 | **3. Reliability** | • **Exact Integer Guarantee**: Integer operations (`47 // 10`, `2 ^ 8`, `15 % 4`) always produce exact integer values.<br>• **Strict Precedence & Associativity**: Right-associative exponentiation (`2 ^ 3 ^ 2 = 512`) and left-associative multiplicative/additive operators.<br>• **Visual Caret (`^`) Diagnostics**: Every lexical, syntax, and runtime error reports the exact line, column, offending source line, visual `^` pointer, and a corrective hint. |
 
-> 💔 **Real-Talk Hugot on Language Criteria:** *"Imagine she told you **'you deserve someone better'** (`Readability` = 0, mixed signals), tapos malalaman mo kinabukasan nasa ibang lalaki na siya saying **'I'll treat you better'** (`Reliability` = 0, biglang nag-reassign ng value sa ibang variable!). That’s why PLang locks built-in constants like `PI` and `E` against reassignment—kasi dito sa PLang, kapag sinabing constant, **hindi nagbabago at hindi nang-iiwan sa ere**."*
+> 💔 *"Imagine she told you **'you deserve someone better'** (`Readability` = 0, mixed signals), tapos malalaman mo kinabukasan nasa iba na siya saying **'I'll treat you better'** (`Reliability` = 0, biglang nag-reassign ng value sa ibang variable!). That’s why PLang locks built-in constants like `PI` and `E` against reassignment—kasi dito sa PLang, kapag sinabing constant, **hindi nagbabago at hindi nang-iiwan sa ere**."*
 
 ---
 
@@ -348,7 +348,7 @@ PLang never crashes with raw stack traces on user mistakes. Instead, it pinpoint
     Hint: Division by zero is undefined. Ensure the divisor expression evaluates to a non-zero number.
   ```
 
-> 🪄 **The Herta on Diagnostics:** *"Look at how polite my interpreter is. When you make a mistake, PLang gives you the exact `Line`, `Col`, a visual `^` pointer, and a `Hint` on how to fix it—hindi katulad niya na bigla ka na lang ghinost without closure tapos sasabihin 'it's not you, it's me.' At least dito, alam mo kung saan ka nagkulang."*
+> 🪄 *"Look at how polite my interpreter is. When you make a mistake, PLang gives you the exact `Line`, `Col`, a visual `^` pointer, and a `Hint` on how to fix it—hindi katulad niya na bigla ka na lang ghinost without closure tapos sasabihin 'it's not you, it's me.' At least dito, alam mo kung saan ka nagkulang."*
 
 ---
 
