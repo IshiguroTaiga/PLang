@@ -39,6 +39,9 @@ In Computer Science (and in Robert W. Sebesta’s *Concepts of Programming Langu
 * **Python is NOT our language.** Python is merely the **Host Implementation Language** (the factory tool) we used to construct the **PLang Interpreter**.
 * **PLang (`.plang`) is our Target Language**—it has its own file extension (`.plang`), its own vocabulary, its own grammar rules, its own memory space, and its own error system.
 
+> 🪄 **The Herta’s Explanation (Genius Society #83):**
+> *"Calling PLang 'just Python' because its interpreter was written in Python is like calling my Herta puppets 'just wood and joints'—it completely misses the genius soul running inside! Kuru kuru~ Python is merely the vessel. Or in terms your heartbroken brain can understand: Python is just the tulay/bridge na ginamit niya para makilala yung bago niya—the bridge isn't the relationship, kasangkapan lang siya!"*
+
 ---
 
 ## 🏛️ 2. 6 Formal Justifications: Why PLang Is a True Programming Language
@@ -84,6 +87,8 @@ A real programming language manages its own **memory state (Symbol Table)** sepa
 * When a user runs `let score = 100` in PLang, no Python variable named `score` is created.
 * Instead, [`Interpreter.variables`](lang.py#L1149-L1155) maintains an isolated dictionary symbol table mapping PLang identifiers (`score`, `ans`) and read-only mathematical constants (`PI`, `E`) to their runtime values and types.
 * Commands like `vars` and `clear` inspect and reset PLang’s symbol table at runtime.
+
+> 💔 **Symbol Table Hugot:** *"Sa PLang, pag nag-run ka ng `vars`, makikita mo nang buong tapat kung sino-sino ang naka-save sa `Symbol Table` at kung anong tunay nilang `Data Type` (`integer` o `float`). Walang tinatago! Hindi katulad nung nagsabi sa'yo ng **'you deserve someone better, di pa ako ready'**—yun pala pag-check mo ng Symbol Table niya, may naka-bind nang iba tapos ang sabi sa bago: **'I'll treat you better.'** Buti pa si PLang, pag nag-error ng `undefined_variable`, diretso agad: walang label, kaya wag kang mag-assume!"*
 
 ### Justification 6: Host-Language Independence (Dual Implementation Proof!)
 The ultimate proof that a language is its own language is that **the same language specification can be implemented in multiple host languages**.

@@ -83,6 +83,12 @@ You type a line in the terminal (`plang> `) or load a `.plang` file from the `ex
   3. Writes `score = 20` inside its Notebook (`variables`).
 * **Catches Math Impossibilities ("Runtime Errors")**: What if someone writes `100 / (5 - 5)`? The spelling and grammar are fine, so Stations 2 and 3 pass! But when Station 4 calculates `5 - 5 = 0`, it realizes **you cannot divide by zero**, stops safely, and prints a helpful hint.
 
+> 🪄 **How The Herta (Genius Society #83) Would Explain the 4 Stations:**
+> *"Listen up, trailblazer—I'm only explaining this once before I go back to the Simulated Universe:*
+> * *Station 2 (`Tokenizer`) is me filtering out low-IQ nonsense (`10 @ 5`) before it wastes my time.*
+> * *Station 3 (`Parser`) is priorities—Multiplication (`*`) and Exponents (`^`) come first before Addition (`+`), hindi katulad mo na ginawa mo siyang priority habang ginawa ka lang niyang option.*
+> * *Station 4 (`Interpreter`) is the Symbol Table where variables get reassigned (`x = 10` tapos biglang `x = 99`)—parang nung sinabi niya sa'yo **'you deserve someone better'**, tapos makikita mo sa myday niya may kasama nang iba saying **'I'll treat you better.'** At least sa PLang, pag nag-type ka ng `clear`, burado agad lahat ng alaala!"*
+
 ---
 
 ## 🧩 3. How Did We Build It WITHOUT `if-else` or Nested `if`s?
@@ -120,6 +126,8 @@ if right_val == 0:
     raise InterpreterError("divide_by_zero", ...)
 ```
 Because it stops immediately, we **never** need an `else` block and we **never** put an `if` inside another `if`!
+
+> 💔 **Pinoy Hugot Note on Guard Clauses:** *"Ang **Guard Clause**, pag nakita niyang `0` yung effort at value mo sa kanya (`if right_val == 0:`), **bounce na agad (`raise`)**! Hindi yung maglalagay ka pa ng 10 layers ng nested `if` (`if magbabago pa siya... if mahal niya pa ako... else maghihintay pa rin ako`). Learn from PLang: pag red flag sa unang check pa lang, exit agad!"*
 
 ---
 
