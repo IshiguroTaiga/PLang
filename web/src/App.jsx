@@ -25,7 +25,7 @@ export default function App() {
     setCode(newPreset.sampleCode || '');
     setLogs((prev) => [
       ...prev,
-      { type: 'banner', text: `[Loaded Example: ${newPreset.name}]` }
+      { type: 'banner', text: `Loaded example: ${newPreset.name}` }
     ]);
   };
 
@@ -64,7 +64,7 @@ export default function App() {
       if (interpreter.outputs.length === 0) {
         newLogs.push({
           type: 'print',
-          text: `${PLANG_CONFIG.print_prefix}[Statements executed — variables updated]`
+          text: `${PLANG_CONFIG.print_prefix}Statements executed — variables updated`
         });
       }
       setLogs(newLogs);
@@ -120,7 +120,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
+    <div className="min-h-screen bg-[#0B0F17] text-slate-100 font-sans flex flex-col selection:bg-purple-500/30 selection:text-purple-200">
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -130,8 +130,8 @@ export default function App() {
 
       <main className="flex-1">
         {activeTab === 'ide' && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[580px]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[520px]">
               <div className="lg:col-span-7 h-full">
                 <EditorPane
                   code={code}
@@ -153,7 +153,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[320px]">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[300px]">
               <div className="lg:col-span-7 h-full">
                 <ASTVisualizer astStatements={astStatements} tokens={tokens} />
               </div>
@@ -176,8 +176,8 @@ export default function App() {
         {activeTab === 'analysis' && <ArchitectureAnalysis />}
       </main>
 
-      <footer className="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500 font-mono">
-        <p>PLang v2.0 Arithmetic Language Studio • CMPSC 132 Final Project (Readability, Writability & Reliability)</p>
+      <footer className="border-t border-slate-900 bg-[#0B0F17] py-3 text-center text-xs text-slate-500 font-mono">
+        <p>PLang v2.0 • CMPSC 132 Programming Languages</p>
       </footer>
     </div>
   );
