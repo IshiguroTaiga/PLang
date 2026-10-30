@@ -1,8 +1,6 @@
 # 🔗 PLang v2.0 — Official GitHub Repository
 
 - **GitHub Repository URL**: [https://github.com/IshiguroTaiga/PLang](https://github.com/IshiguroTaiga/PLang)
-- **Clone URL (HTTPS)**: `https://github.com/IshiguroTaiga/PLang.git`
-- **Formal Project Documentation (PDF)**: [`FINAL_PLang_Documentation.pdf`](./FINAL_PLang_Documentation.pdf)
 
 ---
 
@@ -27,9 +25,7 @@ python main.py examples/error_handling_demo.plang
 python -m pytest test_lang.py -v
 
 # 5. Launch Interactive React Web Studio IDE (Optional)
-cd web
-npm install
-npm run dev
+- **Website link**: [https://p-lang-eight.vercel.app/](https://p-lang-eight.vercel.app/)
 ```
 
-> 🪄 *"Why download everything manually when the entire Genius Society repository is already hosted and version-controlled? Just click the link above—mas madaling hanapin kaysa sa closure na hinihingi mo sa kanya."* — **The Herta**
+> 🪄 *"Just click the link above—mas madaling hanapin kaysa sa closure na hinihingi mo sa kanya."* — **The Herta**
