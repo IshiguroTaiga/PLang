@@ -8,7 +8,12 @@ export default function Navbar({ activeTab, setActiveTab, activePreset, onSelect
         <div className="flex items-center justify-between h-14">
           {/* Brand */}
           <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2.5">
+              <img
+                src="/THerta_LogoWFrame.png"
+                alt="PLang Logo"
+                className="w-8 h-8 rounded-md object-contain"
+              />
               <span className="font-mono font-bold text-lg tracking-tight text-white">
                 PLang
               </span>
