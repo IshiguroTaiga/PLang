@@ -1,5 +1,4 @@
-# ⚖️ PLang v2.0 vs. Traditional Programming Languages — Comparison Matrix
-*(Supporting Reference for CMPSC 132: Programming Languages)*
+# ⚖️ PLang vs. Traditional Programming Languages — Comparison Matrix
 
 This document provides a **side-by-side comparison matrix** between **PLang v2.0 (`.plang`)** inputs and how the exact same operations are written in **C++**, **Java**, and **Python 3**, demonstrating how PLang optimizes **Readability**, **Writability**, and **Reliability**.
 
@@ -24,8 +23,8 @@ This document provides a **side-by-side comparison matrix** between **PLang v2.0
 | **13. Reset Memory State** | `clear` | *(Not built-in)* | *(Not built-in)* | `globals().clear()` *(breaks runtime)* | **Writability**: Resets the Symbol Table in one word (`clear`). |
 | **14. Last Evaluated Result** | `ans` | *(Must manually store in a temp variable)* | *(Must manually store in a temp variable)* | `_` *(only in interactive shell, not scripts)* | **Writability**: Every expression automatically updates `ans` in both scripts and REPL. |
 
-> 🪄 **The Herta’s Commentary (Genius Society #83):**
-> *"Look at Row 8 (`2 ^ 3`). In C++, Java, and Python, typing `2 ^ 3` gives you `1` because they use `^` for bitwise XOR. How unintuitive for arithmetic! In PLang, `2 ^ 3` actually means $2^3 = 8$. Kuru kuru~ Kasi sa PLang, kung ano yung sinabi, yun talaga yung ibig sabihin—hindi katulad nung nagsabi sa'yo ng **'you deserve someone better'** pero ang totoong meaning pala sa compiler niya ay **'may nahanap na akong iba at sasabihan ko siya ng I'll treat you better.'**"*
+> 🪄 
+> *"Look at Row 8 (`2 ^ 3`). In C++, Java, and Python, typing `2 ^ 3` gives you `1` because they use `^` for bitwise XOR. How unintuitive for arithmetic! In PLang, `2 ^ 3` actually means $2^3 = 8$. Kasi sa PLang, kung ano yung sinabi, yun talaga yung ibig sabihin hindi katulad nung nagsabi sa'yo ng **'you deserve someone better'** pero ang totoong meaning pala sa compiler niya ay **'I'll treat you better sa bago nya.'**"*
 
 ---
 
