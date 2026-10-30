@@ -123,17 +123,38 @@ vars`
     name: "4. Error Handling & Diagnostics",
     badge: "Reliability",
     description:
-      "Demonstrates how PLang traps incorrect syntax formats or division by zero with exact line, column, and visual caret pointer.",
-    sampleCode: `# Try uncommenting any of the lines below to test PLang's error diagnostics:
+      "Demonstrates how PLang traps 21 Lexical, Syntax/Format, and Runtime errors with exact line, column, visual caret (^), and hints.",
+    sampleCode: `# ======================================================================
+# PLang Error Handling & Diagnostics Suite (21 Live Error Cases)
+# Click "Run Script" to see PLang catch and diagnose every error below!
+# ======================================================================
 
-let valid_calc = 50 // 5
-print valid_calc
+# --- 1. LEXICAL ERRORS (Invalid Characters & Malformed Tokens) ---
+10 @ 5
+let price = $100
+let bad_float = 12.34.56
+let 2fast = 50
 
-# Case A: Division by zero (Runtime Error)
+# --- 2. SYNTAX / FORMAT ERRORS (Grammar & Structure Violations) ---
+25 + * 5
+40 +
+10 20
+(10 + 5 * 2
+10 + 5)
+10 + ()
+let score 100
+10 = 5
+let print = 10
+print
+
+# --- 3. RUNTIME / DOMAIN ERRORS (Illegal Math & Undefined State) ---
 print 100 / (10 - 10)
-
-# Case B: Incorrect format / missing operand (Syntax Error)
-# let broken = 25 + * 5`
+print 50 % 0
+print unknown_var + 10
+print sqrt(-16)
+print 2 ^ 50000
+let PI = 3
+print sqrt(4, 9)`
   },
 
   real_world_formulas: {

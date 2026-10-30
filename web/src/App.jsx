@@ -31,47 +31,80 @@ export default function App() {
 
   const handleRunCode = (sourceOverride = null) => {
     const sourceToRun = typeof sourceOverride === 'string' ? sourceOverride : code;
-    try {
-      const toks = tokenize(sourceToRun, PLANG_CONFIG);
-      setTokens(toks);
+    const rawLines = sourceToRun.split(/\r?\n/);
+    const collectedTokens = [];
+    const collectedStmts = [];
+    const newLogs = [...logs];
+    const interpreter = new Interpreter(PLANG_CONFIG, variables, sourceToRun);
+    let executedAny = false;
+    let hadError = false;
 
-      if (toks.length <= 1) {
-        return;
-      }
+    for (let idx = 0; idx < rawLines.length; idx += 1) {
+      const lineNum = idx + 1;
+      const rawLine = rawLines[idx];
+      const paddedSource = '\n'.repeat(lineNum - 1) + rawLine;
 
-      const parser = new Parser(toks, PLANG_CONFIG, sourceToRun);
-      const stmts = parser.parseProgram();
-      setAstStatements(stmts);
+      try {
+        const lineToks = tokenize(paddedSource, PLANG_CONFIG);
+        const nonNewlineToks = lineToks.filter((t) => t.type !== 'NEWLINE');
+        if (nonNewlineToks.length <= 1) {
+          continue;
+        }
 
-      const interpreter = new Interpreter(PLANG_CONFIG, variables, sourceToRun);
-      for (const stmt of stmts) {
+        executedAny = true;
+        collectedTokens.push(...nonNewlineToks.filter((t) => t.type !== 'EOF'));
+
+        const parser = new Parser(lineToks, PLANG_CONFIG, paddedSource);
+        parser.skipNewlines();
+        const stmt = parser.parseStatement();
+        if (!['EOF', 'NEWLINE'].includes(parser.currentToken().type)) {
+          parser.raiseTrailingTokenError(parser.currentToken());
+        }
+        collectedStmts.push(stmt);
+
+        interpreter.sourceLines = paddedSource.split(/\r?\n/);
+        const prevOutCount = interpreter.outputs.length;
         const res = interpreter.evaluateStatement(stmt);
-        if (res !== null && res !== undefined) {
-          interpreter.outputs.push({
-            type: 'print',
-            text: `${PLANG_CONFIG.print_prefix}${res}`,
-            value: res
+        for (let o = prevOutCount; o < interpreter.outputs.length; o += 1) {
+          newLogs.push({
+            type: interpreter.outputs[o].type,
+            text: interpreter.outputs[o].text
           });
         }
+        if (res !== null && res !== undefined) {
+          newLogs.push({
+            type: 'print',
+            text: `${PLANG_CONFIG.print_prefix}${res}`
+          });
+        }
+      } catch (err) {
+        hadError = true;
+        const formatted = formatError(err, PLANG_CONFIG);
+        newLogs.push({ type: 'error', text: formatted });
       }
-
-      setVariables(interpreter.variables);
-
-      const newLogs = [...logs];
-      for (const out of interpreter.outputs) {
-        newLogs.push({ type: out.type, text: out.text });
-      }
-      if (interpreter.outputs.length === 0) {
-        newLogs.push({
-          type: 'print',
-          text: `${PLANG_CONFIG.print_prefix}Statements executed — variables updated`
-        });
-      }
-      setLogs(newLogs);
-    } catch (err) {
-      const formatted = formatError(err, PLANG_CONFIG);
-      setLogs((prev) => [...prev, { type: 'error', text: formatted }]);
     }
+
+    if (!executedAny && !hadError) {
+      return;
+    }
+
+    setTokens(collectedTokens);
+    setAstStatements(collectedStmts);
+    setVariables({ ...interpreter.variables });
+
+    if (
+      executedAny &&
+      !hadError &&
+      interpreter.outputs.length === 0 &&
+      newLogs.length === logs.length
+    ) {
+      newLogs.push({
+        type: 'print',
+        text: `${PLANG_CONFIG.print_prefix}Statements executed — variables updated`
+      });
+    }
+
+    setLogs(newLogs);
   };
 
   const handleExecuteSingleLine = (line) => {

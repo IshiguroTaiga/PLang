@@ -1,36 +1,74 @@
 # ======================================================================
-# PLang Example 5: Error Handling & Visual Caret Diagnostics Demo
+# PLang Example 5: Error Handling & Visual Caret Diagnostics Suite
 # Demonstrates Requirement II.2 (Handling Incorrect Formats & Errors)
 # Run with: python main.py examples/error_handling_demo.plang
 # ======================================================================
 
-# First, here is a valid calculation that executes without errors:
-let safe_number = (25 + 15) * 2
-print safe_number
+# --- 1. LEXICAL ERRORS (Invalid Characters & Malformed Tokens) ---
 
-# ----------------------------------------------------------------------
-# HOW TO TEST ERROR HANDLING DURING YOUR DEMO:
-# Remove the '#' symbol in front of ANY ONE line below and re-run this
-# file to see PLang's visual caret (^) error diagnostics and hints!
-# ----------------------------------------------------------------------
+# Case 1: Unrecognized symbol '@'
+10 @ 5
 
-# 1. LEXICAL ERROR (Unrecognized symbol '@'):
-# let bad_symbol = 10 @ 5
+# Case 2: Unrecognized currency symbol '$'
+let price = $100
 
-# 2. LEXICAL ERROR (Malformed decimal with two dots):
-# let bad_float = 12.34.56
+# Case 3: Malformed decimal number (multiple decimal points)
+let bad_float = 12.34.56
 
-# 3. LEXICAL ERROR (Variable name starting with a digit):
-# let 2fast = 100
+# Case 4: Invalid variable name starting with a digit
+let 2fast = 50
 
-# 4. SYNTAX / FORMAT ERROR (Missing number between '+' and '*'):
-# let bad_format = 10 + * 5
+# --- 2. SYNTAX / FORMAT ERRORS (Grammar & Structure Violations) ---
 
-# 5. SYNTAX / FORMAT ERROR (Unclosed parenthesis):
-# let unclosed = (10 + 20 * 3
+# Case 5: Consecutive binary operators (missing operand between '+' and '*')
+25 + * 5
 
-# 6. RUNTIME ERROR (Division by zero):
-# print 100 / (10 - 10)
+# Case 6: Incomplete expression (missing operand at end of line)
+40 +
 
-# 7. RUNTIME ERROR (Using a variable before defining it):
-# print unknown_variable + 10
+# Case 7: Missing operator between two numbers
+10 20
+
+# Case 8: Unclosed opening parenthesis '('
+(10 + 5 * 2
+
+# Case 9: Unmatched closing parenthesis ')'
+10 + 5)
+
+# Case 10: Empty parentheses '()'
+10 + ()
+
+# Case 11: Missing '=' in 'let' variable declaration
+let score 100
+
+# Case 12: Invalid assignment target (assigning to a number literal)
+10 = 5
+
+# Case 13: Using a reserved keyword ('print') as a variable name
+let print = 10
+
+# Case 14: Empty 'print' statement with no expression
+print
+
+# --- 3. RUNTIME / DOMAIN ERRORS (Illegal Math & Undefined State) ---
+
+# Case 15: Division by zero
+print 100 / (10 - 10)
+
+# Case 16: Modulo by zero
+print 50 % 0
+
+# Case 17: Undefined variable reference
+print unknown_var + 10
+
+# Case 18: Square root of a negative number (domain error)
+print sqrt(-16)
+
+# Case 19: Numeric exponent overflow (> 10000)
+print 2 ^ 50000
+
+# Case 20: Reassigning a protected mathematical constant (PI)
+let PI = 3
+
+# Case 21: Wrong number of arguments to a built-in function
+print sqrt(4, 9)

@@ -202,9 +202,48 @@ class CLIRunner:
             except Exception as exc:
                 print(f"[System Error]: {exc}")
 
+    def _try_print_file_tokens(self, source_code):
+        """Prints the lexical token stream for a script file when `--tokens` is enabled."""
+        try:
+            tokens = tokenize(source_code, self.config)
+            self._print_tokens_table(tokens)
+        except PlangError:
+            return
+
+    def _parse_and_run_script_line(self, line_num, raw_line, statements):
+        """Tokenizes, parses, and evaluates a single line from a script file."""
+        padded_source = ("\n" * (line_num - 1)) + raw_line
+        self.interpreter.set_source_code(padded_source)
+        line_tokens = tokenize(padded_source, self.config)
+        non_newline_tokens = [t for t in line_tokens if t.type != "NEWLINE"]
+        if len(non_newline_tokens) <= 1:
+            return
+
+        parser = Parser(non_newline_tokens, self.config, source_code=padded_source)
+        stmt = parser.parse_statement()
+        if parser.current_token().type not in ("EOF", "NEWLINE"):
+            parser._raise_trailing_token_error(parser.current_token())
+
+        statements.append(stmt)
+        self.interpreter.evaluate_statement(stmt)
+
+    def _run_script_line_safe(self, line_num, raw_line, statements):
+        """Executes a single script line and prints formatted diagnostics if an error occurs."""
+        try:
+            self._parse_and_run_script_line(line_num, raw_line, statements)
+            return False
+        except PlangError as err:
+            print(format_error(err, self.config))
+            print()
+            return True
+        except Exception as exc:
+            print(f"[System Error]: {exc}")
+            return True
+
     def run_file(self, file_path):
         """
-        Reads, tokenizes, parses, and executes a PLang script file (`.plang` or `.gib`).
+        Reads, tokenizes, parses, and executes a PLang script file (`.plang` or `.gib`)
+        with line-by-line diagnostic recovery so all errors in a file are reported.
 
         Args:
             file_path (str): Path to the script file to execute.
@@ -220,27 +259,19 @@ class CLIRunner:
             print(f"[File Error]: Could not read '{file_path}': {exc}")
             sys.exit(1)
 
-        try:
-            self.interpreter.set_source_code(source_code)
-            tokens = tokenize(source_code, self.config)
+        if self.show_tokens:
+            self._try_print_file_tokens(source_code)
 
-            if self.show_tokens:
-                self._print_tokens_table(tokens)
+        statements = []
+        error_flags = [
+            self._run_script_line_safe(line_num, raw_line, statements)
+            for line_num, raw_line in enumerate(source_code.splitlines(), start=1)
+        ]
 
-            parser = Parser(tokens, self.config, source_code=source_code)
-            statements = parser.parse_program()
+        if self.show_ast and statements:
+            self._print_ast_tree(statements)
 
-            if self.show_ast:
-                self._print_ast_tree(statements)
-
-            for stmt in statements:
-                self.interpreter.evaluate_statement(stmt)
-
-        except PlangError as err:
-            print(format_error(err, self.config))
-            sys.exit(1)
-        except Exception as exc:
-            print(f"[System Error]: {exc}")
+        if any(error_flags):
             sys.exit(1)
 
     def start(self, script_path=None):
