@@ -11,9 +11,6 @@ export default function ArchitectureAnalysis() {
         <h1 className="text-2xl font-bold text-slate-100 mt-3">
           Readability, Writability & Reliability
         </h1>
-        <p className="text-sm text-slate-400 mt-1.5 max-w-3xl leading-relaxed">
-          How <strong className="text-purple-300 font-mono">PLang v2.0</strong> satisfies Robert W. Sebesta's programming language evaluation criteria and implements a zero <code className="text-purple-300 font-mono">if-else</code> / zero nested <code className="text-purple-300 font-mono">if</code> interpreter architecture.
-        </p>
       </div>
 
       {/* 3 Pillars Summary Grid */}

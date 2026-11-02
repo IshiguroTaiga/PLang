@@ -208,6 +208,39 @@ print crates
 print crates div 14
 print crates mod 14
 vars`
+  },
+
+  everyday_life: {
+    id: "everyday_life",
+    name: "7. Relatable Student & Barkada Life",
+    badge: "Relatable Demo",
+    description:
+      "Relatable everyday scenarios: Student daily baon & coffee budget, barkada food bill splitter (ambagan), online shopping voucher, and ranked game stars.",
+    sampleCode: `# 1. Student Daily Baon (Allowance) Tracker
+let daily_baon = 300
+let jeepney_fare = 13 mul 2
+let lunch_meal = 85
+let iced_coffee = 65
+let total_gastos = jeepney_fare add lunch_meal add iced_coffee
+let natirang_baon = daily_baon sub total_gastos
+print total_gastos
+print natirang_baon
+
+# 2. Barkada Food Trip Bill Splitter (Ambagan!)
+let total_bill = 1250
+let barkada_count = 4
+let ambag_bawat_isa = total_bill div barkada_count
+let sobrang_barya = total_bill mod barkada_count
+print ambag_bawat_isa
+print sobrang_barya
+
+# 3. Online Shopping Checkout + 100 Peso Voucher
+let cart_total = 450 * 2 + 55
+cart_total -= 100
+print cart_total
+
+# 4. Inspect all saved variables in Symbol Table
+vars`
   }
 };
 

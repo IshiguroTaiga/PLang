@@ -210,7 +210,7 @@ export default function App() {
       </main>
 
       <footer className="border-t border-slate-900 bg-[#0B0F17] py-3 text-center text-xs text-slate-500 font-mono">
-        <p>PLang v2.0 • CMPSC 132 Programming Languages</p>
+        <p>PLang V2.0 • Made by ur boi Ishi :3</p>
       </footer>
     </div>
   );
