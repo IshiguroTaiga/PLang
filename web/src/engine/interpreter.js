@@ -307,7 +307,7 @@ export class AssignNode extends ASTNode {
 
 export class PrintNode extends ASTNode {
   static NODE_CATEGORY = "PrintStatement";
-  static CUSTOM_PRINT_MESSAGES = { san_tayo_nagkulang: "Error 404: Label Not Found — Gave 100% effort, got NULL in return. You deserve someone better! 💔", san_tayo_nagkulan: "Error 404: Label Not Found — Gave 100% effort, got NULL in return. You deserve someone better! 💔" };
+  static CUSTOM_PRINT_MESSAGES = { san_tayo_nagkulang: "Error 404: VALUE Not Found", san_tayo_nagkulan: "Error 404: VALUE Not Found" };
 
   constructor(expr, line, col) {
     super(line, col);
