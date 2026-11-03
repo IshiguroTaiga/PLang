@@ -42,7 +42,7 @@ export const PRESET_PROGRAMS = {
     badge: "Requirement II.1",
     description:
       "Demonstrates exact integer computation, operator precedence (^ > * // % > + -), and parenthesized grouping.",
-    sampleCode: `# 1. Explicit integer declarations (Readability)
+    sampleCode: `# 1. Explicit integer declarations
 let base_score = 100
 let bonus = 25
 let penalty = 15
@@ -125,11 +125,8 @@ vars`
     description:
       "Demonstrates how PLang traps 21 Lexical, Syntax/Format, and Runtime errors with exact line, column, visual caret (^), and hints.",
     sampleCode: `# ======================================================================
-# PLang Error Handling & Diagnostics Suite (21 Live Error Cases)
-# Click "Run Script" to see PLang catch and diagnose every error below!
-# ======================================================================
 
-# --- 1. LEXICAL ERRORS (Invalid Characters & Malformed Tokens) ---
+# --- 1. LEXICAL ERRORS (Invalid Characters) ---
 10 @ 5
 let price = $100
 let bad_float = 12.34.56
@@ -147,7 +144,7 @@ let score 100
 let print = 10
 print
 
-# --- 3. RUNTIME / DOMAIN ERRORS (Illegal Math & Undefined State) ---
+# --- 3. RUNTIME / DOMAIN ERRORS (Undefined State) ---
 print 100 / (10 - 10)
 print 50 % 0
 print unknown_var + 10
