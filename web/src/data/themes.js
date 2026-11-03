@@ -212,11 +212,11 @@ vars`
 
   everyday_life: {
     id: "everyday_life",
-    name: "7. Relatable Student & Barkada Life",
+    name: "7. IDK Everyday Life Scenarios I Guess",
     badge: "Relatable Demo",
     description:
-      "Relatable everyday scenarios: Student daily baon & coffee budget, barkada food bill splitter (ambagan), 'San Tayo Nagkulang?' relationship math, and online shopping voucher.",
-    sampleCode: `# 1. Student Daily Baon (Allowance) Tracker
+      "Relatable everyday scenarios:",
+    sampleCode: `# 1. Student Daily Allowance Tracker
 let daily_baon = 300
 let jeepney_fare = 13 mul 2
 let lunch_meal = 85
@@ -226,7 +226,7 @@ let natirang_baon = daily_baon sub total_gastos
 print total_gastos
 print natirang_baon
 
-# 2. Barkada Food Trip Bill Splitter (Ambagan!)
+# 2. Ambagan!
 let total_bill = 1250
 let barkada_count = 4
 let ambag_bawat_isa = total_bill div barkada_count
@@ -234,20 +234,13 @@ let sobrang_barya = total_bill mod barkada_count
 print ambag_bawat_isa
 print sobrang_barya
 
-# 3. San Tayo Nagkulang? (Relationship Math)
-let effort_ko = 100
-let effort_niya = NULL
+# 3. San Tayo nagkulang?
 let saan_ba = NULL
 let san_tayo = NULL
 let san_tayo_nagkulang = saan_ba == san_tayo
 print san_tayo_nagkulang
 
-# 4. Online Shopping Checkout + 100 Peso Voucher
-let cart_total = 450 * 2 + 55
-cart_total -= 100
-print cart_total
-
-# 5. Inspect all saved variables in Symbol Table
+# 4. Inspect all saved variables in Symbol Table
 vars`
   }
 };
