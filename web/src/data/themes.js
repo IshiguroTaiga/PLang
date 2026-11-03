@@ -124,8 +124,7 @@ vars`
     badge: "Reliability",
     description:
       "Demonstrates how PLang traps 21 Lexical, Syntax/Format, and Runtime errors with exact line, column, visual caret (^), and hints.",
-    sampleCode: `# ======================================================================
-
+    sampleCode: `
 # --- 1. LEXICAL ERRORS (Invalid Characters) ---
 10 @ 5
 let price = $100
