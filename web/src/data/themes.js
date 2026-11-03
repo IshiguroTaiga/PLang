@@ -215,7 +215,7 @@ vars`
     name: "7. Relatable Student & Barkada Life",
     badge: "Relatable Demo",
     description:
-      "Relatable everyday scenarios: Student daily baon & coffee budget, barkada food bill splitter (ambagan), online shopping voucher, and ranked game stars.",
+      "Relatable everyday scenarios: Student daily baon & coffee budget, barkada food bill splitter (ambagan), 'San Tayo Nagkulang?' relationship math, and online shopping voucher.",
     sampleCode: `# 1. Student Daily Baon (Allowance) Tracker
 let daily_baon = 300
 let jeepney_fare = 13 mul 2
@@ -234,12 +234,20 @@ let sobrang_barya = total_bill mod barkada_count
 print ambag_bawat_isa
 print sobrang_barya
 
-# 3. Online Shopping Checkout + 100 Peso Voucher
+# 3. San Tayo Nagkulang? (Relationship Math)
+let effort_ko = 100
+let effort_niya = NULL
+let saan_ba = NULL
+let san_tayo = NULL
+let san_tayo_nagkulang = saan_ba == san_tayo
+print san_tayo_nagkulang
+
+# 4. Online Shopping Checkout + 100 Peso Voucher
 let cart_total = 450 * 2 + 55
 cart_total -= 100
 print cart_total
 
-# 4. Inspect all saved variables in Symbol Table
+# 5. Inspect all saved variables in Symbol Table
 vars`
   }
 };

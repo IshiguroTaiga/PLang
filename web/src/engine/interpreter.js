@@ -307,6 +307,7 @@ export class AssignNode extends ASTNode {
 
 export class PrintNode extends ASTNode {
   static NODE_CATEGORY = "PrintStatement";
+  static CUSTOM_PRINT_MESSAGES = { san_tayo_nagkulang: "Error 404: Label Not Found — Gave 100% effort, got NULL in return. You deserve someone better! 💔", san_tayo_nagkulan: "Error 404: Label Not Found — Gave 100% effort, got NULL in return. You deserve someone better! 💔" };
 
   constructor(expr, line, col) {
     super(line, col);
@@ -318,7 +319,8 @@ export class PrintNode extends ASTNode {
     const val = this.expr.evaluate(interpreter);
     interpreter.variables.ans = val;
     const prefix = interpreter.config?.print_prefix || "[OUT] => ";
-    interpreter.outputs.push({ type: "print", text: `${prefix}${val}`, value: val });
+    const displayVal = PrintNode.CUSTOM_PRINT_MESSAGES[this.expr?.name] ?? val;
+    interpreter.outputs.push({ type: "print", text: `${prefix}${displayVal}`, value: val });
     return null;
   }
 }
@@ -368,7 +370,8 @@ const CANONICAL_TYPE_MAP = {
   IDIV_KW: "IDIV",
   MOD_KW: "MOD",
   POW_KW: "POW",
-  POW_ALT: "POW"
+  POW_ALT: "POW",
+  EQ_ALT: "SUB"
 };
 
 function escapeRegex(str) {
@@ -427,6 +430,7 @@ export function tokenize(sourceCode, config = {}) {
     `(?<DIV_ASSIGN>${escapeRegex("/=")})`,
     `(?<IDIV>${escapeRegex("//")})`,
     `(?<POW_ALT>${escapeRegex("**")})`,
+    `(?<EQ_ALT>${escapeRegex("==")})`,
     `(?<LET>\\blet\\b)`,
     `(?<PRINT>\\bprint\\b)`,
     `(?<CLEAR>\\bclear\\b)`,
@@ -886,7 +890,9 @@ export class Parser {
 export class Interpreter {
   static BUILT_IN_CONSTANTS = {
     PI: Math.PI,
-    E: Math.E
+    E: Math.E,
+    NULL: 0,
+    san_tayo_nagkulan: 0
   };
   static MAX_EXPONENT_MAGNITUDE = 10000;
   static UNARY_FUNCTIONS = {

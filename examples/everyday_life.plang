@@ -23,7 +23,15 @@ let sobrang_barya = total_bill mod barkada_count
 print ambag_bawat_isa
 print sobrang_barya
 
-# --- 3. Online Shopping Checkout with Voucher ---
+# --- 3. San Tayo Nagkulang? (Relationship Math) ---
+let effort_ko = 100
+let effort_niya = NULL
+let saan_ba = NULL
+let san_tayo = NULL
+let san_tayo_nagkulang = saan_ba == san_tayo
+print san_tayo_nagkulang
+
+# --- 4. Online Shopping Checkout with Voucher ---
 let hoodie_price = 450
 let quantity = 2
 let shipping_fee = 55
@@ -31,14 +39,6 @@ let cart_total = hoodie_price * quantity + shipping_fee
 # Apply a 100-peso discount voucher using compound assignment (-=)
 cart_total -= 100
 print cart_total
-
-# --- 4. Gaming Ranked Stars Tracker ---
-let stars = 22
-stars += 5
-stars -= 2
-let stars_to_mythic = 25 - stars
-print stars
-print stars_to_mythic
 
 # Inspect all variables in our Symbol Table
 vars

@@ -566,6 +566,7 @@ class PrintNode(ASTNode):
     """
 
     NODE_CATEGORY = "PrintStatement"
+    CUSTOM_PRINT_MESSAGES = {"san_tayo_nagkulang": "Error 404: Label Not Found — Gave 100% effort, got NULL in return. You deserve someone better! 💔", "san_tayo_nagkulan": "Error 404: Label Not Found — Gave 100% effort, got NULL in return. You deserve someone better! 💔"}
 
     def __init__(self, expr, line, col):
         super().__init__(line, col)
@@ -576,7 +577,7 @@ class PrintNode(ASTNode):
         val = self.expr.evaluate(interpreter)
         interpreter.variables["ans"] = val
         prefix = interpreter.config.get("print_prefix", "[OUT] => ")
-        print(f"{prefix}{val}")
+        print(f"{prefix}{self.CUSTOM_PRINT_MESSAGES.get(getattr(self.expr, 'name', ''), val)}")
         interpreter.history.append({"type": "print", "value": val})
         return None
 
@@ -663,7 +664,7 @@ CANONICAL_TOKEN_MAP = {
     "IDIV_KW": "IDIV",
     "MOD_KW": "MOD",
     "POW_KW": "POW",
-    "POW_ALT": "POW",
+    "POW_ALT": "POW", "EQ_ALT": "SUB",
 }
 
 
@@ -758,7 +759,7 @@ def tokenize(source_code, config=None):
         ("MUL_ASSIGN", re.escape("*=")),
         ("DIV_ASSIGN", re.escape("/=")),
         ("IDIV", re.escape("//")),
-        ("POW_ALT", re.escape("**")),
+        ("POW_ALT", re.escape("**")), ("EQ_ALT", re.escape("==")),
         ("LET", r"\blet\b"),
         ("PRINT", r"\bprint\b"),
         ("CLEAR", r"\bclear\b"),
@@ -1263,7 +1264,7 @@ class Interpreter:
 
     BUILT_IN_CONSTANTS = {
         "PI": math.pi,
-        "E": math.e,
+        "E": math.e, "NULL": 0, "san_tayo_nagkulan": 0,
     }
     MAX_EXPONENT_MAGNITUDE = 10000
     UNARY_FUNCTIONS = {
